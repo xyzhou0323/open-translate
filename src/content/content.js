@@ -19,6 +19,7 @@ let translationMode = TRANSLATION_MODES.REPLACE; // 统一默认为替换模式
 let dynamicTranslationEnabled = true;
 let scrollTimeout = null;
 let retryCheckInterval = null;
+let retryTimeoutId = null;
 
 /**
  * Initialize content script
@@ -422,9 +423,19 @@ async function handleTranslateRequest(options = {}) {
   } finally {
     isTranslating = false;
 
-    // 重新启用内容观察器
+    // 翻译期间会主动断开观察器，这里统一恢复监听。
+    if (contentObserver) {
+      contentObserver.disconnect();
+    }
+
     if (!contentObserver) {
       contentObserver = setupContentObserver();
+    } else {
+      contentObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true
+      });
     }
   }
 }
@@ -439,9 +450,11 @@ async function handleRestoreRequest() {
 
     if (translationMode === 'paragraph-bilingual') {
       translationRenderer.showOriginalOnly();
+      isTranslated = true;
     } else {
       translationRenderer.restoreOriginalText();
       isTranslated = false;
+      currentTextNodes = [];
       currentTranslations = [];
     }
 
@@ -812,8 +825,12 @@ async function handleTranslationRetries(targetLanguage, sourceLanguage) {
     if (stats.retryableElements > 0) {
       console.log(`[Content] Found ${stats.retryableElements} elements ready for retry`);
 
-      // 延迟一段时间后执行重试，避免与主翻译流程冲突
-      setTimeout(async () => {
+      if (retryTimeoutId) {
+        return;
+      }
+
+      // 延迟执行一次重试，避免与主翻译流程重叠。
+      retryTimeoutId = setTimeout(async () => {
         try {
           const retryResults = await translationRenderer.retryFailedElements(
             translationService,
@@ -835,6 +852,8 @@ async function handleTranslationRetries(targetLanguage, sourceLanguage) {
           }
         } catch (error) {
           console.warn('[Content] Translation retry failed:', error);
+        } finally {
+          retryTimeoutId = null;
         }
       }, 3000); // 3秒延迟
     }
@@ -876,6 +895,11 @@ function stopRetryMonitoring() {
     clearInterval(retryCheckInterval);
     retryCheckInterval = null;
   }
+
+  if (retryTimeoutId) {
+    clearTimeout(retryTimeoutId);
+    retryTimeoutId = null;
+  }
 }
 
 /**
@@ -898,16 +922,19 @@ async function performIncrementalTranslation(paragraphGroups) {
       }
     };
 
+    const targetLanguage = window.lastTranslationSettings?.targetLanguage || 'zh-CN';
+    const sourceLanguage = window.lastTranslationSettings?.sourceLanguage || 'auto';
+
     await translationService.translateParagraphGroups(
       paragraphGroups,
-      'zh-CN', // 使用当前目标语言
-      'auto',  // 自动检测源语言
+      targetLanguage,
+      sourceLanguage,
       progressCallback,
       { translationMode: translationMode }
     );
 
     // 检查增量翻译后是否有失败元素需要重试
-    await handleTranslationRetries('zh-CN', 'auto');
+    await handleTranslationRetries(targetLanguage, sourceLanguage);
 
   } catch (error) {
     console.warn('Incremental translation failed:', error);
@@ -915,5 +942,4 @@ async function performIncrementalTranslation(paragraphGroups) {
     isTranslating = false;
   }
 }
-
 

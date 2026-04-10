@@ -195,19 +195,23 @@ async function handleRestoreOriginal(tab) {
  */
 async function handleModeSwitch(mode, tab) {
   try {
-    if (![TRANSLATION_MODES.REPLACE, TRANSLATION_MODES.BILINGUAL].includes(mode)) {
+    const normalizedMode = mode === 'bilingual'
+      ? TRANSLATION_MODES.BILINGUAL
+      : mode;
+
+    if (![TRANSLATION_MODES.REPLACE, TRANSLATION_MODES.BILINGUAL].includes(normalizedMode)) {
       throw new Error(`Invalid translation mode: ${mode}`);
     }
 
-    await chrome.storage.sync.set({ translationMode: mode });
+    await chrome.storage.sync.set({ translationMode: normalizedMode });
 
-    chrome.contextMenus.update('mode-replace', { checked: mode === TRANSLATION_MODES.REPLACE });
-    chrome.contextMenus.update('mode-bilingual', { checked: mode === TRANSLATION_MODES.BILINGUAL });
+    chrome.contextMenus.update('mode-replace', { checked: normalizedMode === TRANSLATION_MODES.REPLACE });
+    chrome.contextMenus.update('mode-bilingual', { checked: normalizedMode === TRANSLATION_MODES.BILINGUAL });
 
     try {
       const response = await chrome.tabs.sendMessage(tab.id, {
         action: 'switchMode',
-        mode: mode
+        mode: normalizedMode
       });
 
       if (response && response.success) {
@@ -368,4 +372,3 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
     chrome.action.setBadgeText({ text: '', tabId }).catch(() => {});
   }
 });
-

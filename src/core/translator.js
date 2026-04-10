@@ -1040,7 +1040,7 @@ Translations:`;
             processedCount++;
 
             if (progressCallback) {
-              progressCallback(result, processedCount, totalGroups);
+              await progressCallback(result, processedCount, totalGroups);
             }
           }
 
@@ -1477,7 +1477,7 @@ Translations:`;
       '7. Maintain paragraph structure when appropriate',
       '8. For HTML content: Preserve tags but focus on natural text translation',
       '9. Maintain consistency in terminology across all segments',
-      '10. Ensure excellent flow and natural expression in ${targetLang}'
+      `10. Ensure excellent flow and natural expression in ${targetLang}`
     ];
 
     // Add language-specific instructions
@@ -1494,11 +1494,11 @@ Translations:`;
       `You are a professional ${targetLang} native translator with exceptional linguistic skills and cultural understanding.`,
       '',
       '## Translation Excellence Principles',
-      '1. PRIORITY: Create natural, fluent translations that read like native ${targetLang} content',
-      '2. Avoid literal translations - use natural ${targetLang} expressions and sentence patterns',
-      '3. Adapt content to ${targetLang} linguistic and cultural conventions',
-      '4. Use idiomatic expressions and natural word order of ${targetLang}',
-      '5. Maintain the original meaning and intent while optimizing for ${targetLang} readability',
+      `1. PRIORITY: Create natural, fluent translations that read like native ${targetLang} content`,
+      `2. Avoid literal translations - use natural ${targetLang} expressions and sentence patterns`,
+      `3. Adapt content to ${targetLang} linguistic and cultural conventions`,
+      `4. Use idiomatic expressions and natural word order of ${targetLang}`,
+      `5. Maintain the original meaning and intent while optimizing for ${targetLang} readability`,
       '',
       '## Output Requirements',
       '6. Output only the translated content, without explanations or additional text',
@@ -1506,7 +1506,7 @@ Translations:`;
       '8. Each translation should be on a separate line with its corresponding number',
       '9. Only return the numbered translations without any additional commentary',
       '10. Maintain consistency in terminology across all segments',
-      '11. Ensure excellent flow and natural expression in ${targetLang}'
+      `11. Ensure excellent flow and natural expression in ${targetLang}`
     ];
 
     // Add context awareness section
