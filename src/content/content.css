@@ -423,3 +423,95 @@ article .ot-bilingual-container,
   margin-bottom: 8px !important;
   word-break: break-word !important;
 }
+
+/* Translating-in-progress animation */
+@keyframes ot-shimmer {
+  0% { opacity: 0.6; }
+  50% { opacity: 0.85; }
+  100% { opacity: 0.6; }
+}
+
+.ot-translating {
+  animation: ot-shimmer 1.2s ease-in-out infinite !important;
+  position: relative !important;
+  background: linear-gradient(
+    90deg,
+    rgba(100, 149, 237, 0.06) 0%,
+    rgba(100, 149, 237, 0.12) 50%,
+    rgba(100, 149, 237, 0.06) 100%
+  ) !important;
+  background-size: 200% 100% !important;
+  border-radius: 3px !important;
+}
+
+@keyframes ot-shimmer-bg {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.ot-translating {
+  animation:
+    ot-shimmer 1.2s ease-in-out infinite,
+    ot-shimmer-bg 2s linear infinite !important;
+}
+
+/* Click-to-Translate Mode */
+
+.ot-clickable-paragraph {
+  position: relative !important;
+  cursor: pointer !important;
+  border-left: 3px solid transparent !important;
+  padding-left: 12px !important;
+  transition: border-left-color 0.2s ease, background-color 0.2s ease !important;
+  user-select: text !important;
+}
+
+.ot-clickable-paragraph:hover {
+  border-left-color: #6495ED !important;
+  background-color: rgba(100, 149, 237, 0.06) !important;
+}
+
+.ot-clickable-paragraph.ot-click-translated {
+  border-left-color: #4CAF50 !important;
+  cursor: default !important;
+}
+
+.ot-clickable-paragraph.ot-click-translated:hover {
+  background-color: transparent !important;
+}
+
+.ot-clickable-paragraph.ot-click-translating {
+  border-left-color: #FF9800 !important;
+  cursor: wait !important;
+  animation: ot-shimmer 1s ease-in-out infinite !important;
+}
+
+.ot-clickable-paragraph .ot-click-indicator {
+  position: absolute !important;
+  left: -10px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 18px !important;
+  height: 18px !important;
+  border-radius: 50% !important;
+  background: rgba(100, 149, 237, 0.12) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  color: #6495ED !important;
+  opacity: 0 !important;
+  transition: opacity 0.2s ease !important;
+  pointer-events: none !important;
+  line-height: 1 !important;
+}
+
+.ot-clickable-paragraph:hover .ot-click-indicator {
+  opacity: 1 !important;
+}
+
+.ot-clickable-paragraph.ot-click-translated .ot-click-indicator,
+.ot-clickable-paragraph.ot-click-translating .ot-click-indicator {
+  opacity: 0 !important;
+}

@@ -102,7 +102,11 @@ class TranslationService {
         'enableMerge',
         'shortTextThreshold',
         'maxMergedLength',
-        'maxMergedCount'
+        'maxMergedCount',
+        'enableSmartBatching',
+        'enableGlossary',
+        'enableCorrection',
+        'useFreeMode'
       ], (result) => {
         const config = result.translationConfig || {};
         // Add batch and merge settings to config if available
@@ -120,6 +124,18 @@ class TranslationService {
         }
         if (result.maxMergedCount) {
           config.maxMergedCount = result.maxMergedCount;
+        }
+        if (result.enableSmartBatching !== undefined) {
+          config.enableSmartBatching = result.enableSmartBatching;
+        }
+        if (result.enableGlossary !== undefined) {
+          config.enableGlossary = result.enableGlossary;
+        }
+        if (result.enableCorrection !== undefined) {
+          config.enableCorrection = result.enableCorrection;
+        }
+        if (result.useFreeMode !== undefined) {
+          config.useFreeMode = result.useFreeMode;
         }
         resolve(config);
       });
@@ -368,6 +384,12 @@ class TranslationService {
     const technicalInstructions = this.getTechnicalInstructions(options.text || text);
 
     const allInstructions = [...baseInstructions, ...contextSection, ...specificInstructions, ...technicalInstructions];
+
+    // Inject glossary if enabled
+    if (this.config && this.config.enableGlossary && typeof buildGlossaryPromptSection === 'function') {
+      const glossarySection = buildGlossaryPromptSection();
+      allInstructions.unshift(...glossarySection);
+    }
 
     return allInstructions.join('\n');
   }
@@ -894,6 +916,12 @@ ${sanitizedText}`;
     const specificInstructions = this.getLanguageSpecificInstructions(targetLang);
     const fullInstructions = [...baseInstructions, ...specificInstructions];
 
+    // Inject glossary if enabled
+    if (this.config && this.config.enableGlossary && typeof buildGlossaryPromptSection === 'function') {
+      const glossarySection = buildGlossaryPromptSection();
+      fullInstructions.unshift(...glossarySection);
+    }
+
     // Create numbered text segments
     const numberedTexts = batch.map((item, index) => `${index + 1}. ${item.text}`).join('\n');
 
@@ -979,8 +1007,8 @@ Translations:`;
    */
   async translateParagraphGroups(paragraphGroups, targetLanguage = 'zh-CN', sourceLanguage = 'auto', progressCallback = null, options = {}) {
     // 检查是否启用批处理
-    const enableSmartBatching = this.config.enableSmartBatching !== false && this.smartBatchProcessor;
-    const enableMerge = this.config.enableMerge !== false; // Default to true
+    const enableSmartBatching = this.config.enableSmartBatching === true && this.smartBatchProcessor;
+    const enableMerge = this.config.enableMerge === true;
 
     if (enableSmartBatching) {
       return await this.translateParagraphGroupsWithSmartBatching(paragraphGroups, targetLanguage, sourceLanguage, progressCallback, options);
@@ -1141,8 +1169,15 @@ Translations:`;
 
     // 添加语言特定指令
     const specificInstructions = this.getLanguageSpecificInstructions(targetLang);
+    const allInstructions = [...baseInstructions, ...specificInstructions];
 
-    return [...baseInstructions, ...specificInstructions].join('\n');
+    // Inject glossary if enabled
+    if (this.config && this.config.enableGlossary && typeof buildGlossaryPromptSection === 'function') {
+      const glossarySection = buildGlossaryPromptSection();
+      allInstructions.unshift(...glossarySection);
+    }
+
+    return allInstructions.join('\n');
   }
 
   /**
@@ -1482,8 +1517,15 @@ Translations:`;
 
     // Add language-specific instructions
     const specificInstructions = this.getLanguageSpecificInstructions(targetLang);
+    const allInstructions = [...baseInstructions, ...specificInstructions];
 
-    return [...baseInstructions, ...specificInstructions].join('\n');
+    // Inject glossary if enabled
+    if (this.config && this.config.enableGlossary && typeof buildGlossaryPromptSection === 'function') {
+      const glossarySection = buildGlossaryPromptSection();
+      allInstructions.unshift(...glossarySection);
+    }
+
+    return allInstructions.join('\n');
   }
 
   /**

@@ -1,7 +1,8 @@
 {
-  "name": "open-translate",
-  "version": "1.0.7",
-  "description": "A powerful Chrome browser extension for web page translation with OpenAI API compatibility",
+  "name": "nd-translate",
+  "version": "1.0.0",
+  "description": "Web page translation extension with neurodiversity terminology glossary, compatible with OpenAI-compatible API. Supports Edge/Chrome.",
+  "author": "XyZ",
   "main": "src/background/background.js",
   "scripts": {
     "prebuild": "npm install && npm run setup-vendor",
@@ -25,7 +26,7 @@
     "browser-extension",
     "multilingual"
   ],
-  "author": "Open Translate Team",
+  "author": "XyZ",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -39,7 +40,7 @@
     "node": ">=14.0.0"
   },
   "devDependencies": {
-    "sharp": "^0.34.3"
+    "sharp": "^0.34.5"
   },
   "manifest": {
     "version": 3,

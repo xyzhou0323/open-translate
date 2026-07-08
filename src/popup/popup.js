@@ -55,7 +55,7 @@ async function initialize() {
       });
     }
 
-    showError('Failed to initialize extension');
+    showError('扩展初始化失败');
   }
 }
 
@@ -69,13 +69,27 @@ function initializeElements() {
   elements.targetLanguage = document.getElementById('targetLanguage');
   elements.modeReplace = document.getElementById('modeReplace');
   elements.modeBilingual = document.getElementById('modeBilingual');
+  elements.modeClickTranslate = document.getElementById('modeClickTranslate');
   elements.translateBtn = document.getElementById('translateBtn');
   elements.restoreBtn = document.getElementById('restoreBtn');
   elements.autoTranslate = document.getElementById('autoTranslate');
   elements.inputFieldListener = document.getElementById('inputFieldListener');
 
   elements.optionsBtn = document.getElementById('optionsBtn');
+  elements.freeLabel = document.getElementById('freeLabel');
+  elements.llmLabel = document.getElementById('llmLabel');
+  elements.useLLM = document.getElementById('useLLM');
   elements.loadingOverlay = document.getElementById('loadingOverlay');
+}
+
+/**
+ * Get the currently selected translation mode from radio buttons
+ */
+function getSelectedMode() {
+  if (elements.modeReplace.checked) return TRANSLATION_MODES.REPLACE;
+  if (elements.modeBilingual.checked) return TRANSLATION_MODES.BILINGUAL;
+  if (elements.modeClickTranslate && elements.modeClickTranslate.checked) return TRANSLATION_MODES.CLICK_TO_TRANSLATE;
+  return TRANSLATION_MODES.REPLACE;
 }
 
 /**
@@ -96,8 +110,22 @@ async function loadPreferences() {
       'targetLanguage',
       'translationMode',
       'autoTranslate',
-      'inputFieldListenerEnabled'
+      'inputFieldListenerEnabled',
+      'useFreeMode',
+      'translationConfig'
     ], (result) => {
+      // Set engine toggle state
+      const hasApiKey = result.translationConfig && result.translationConfig.apiKey;
+      const useFreeMode = hasApiKey
+        ? (result.useFreeMode !== undefined ? result.useFreeMode : true)
+        : true;
+
+      elements.useLLM.checked = !useFreeMode;
+      elements.useLLM.disabled = !hasApiKey;
+      elements.freeLabel.classList.toggle('active', useFreeMode);
+      elements.llmLabel.classList.toggle('active', !useFreeMode);
+      elements.llmLabel.classList.toggle('disabled', !hasApiKey);
+
       // Set language selections
       elements.sourceLanguage.value = result.sourceLanguage || 'auto';
       elements.targetLanguage.value = result.targetLanguage || 'zh-CN';
@@ -106,8 +134,10 @@ async function loadPreferences() {
       const mode = result.translationMode || TRANSLATION_MODES.REPLACE;
       if (mode === TRANSLATION_MODES.REPLACE) {
         elements.modeReplace.checked = true;
-      } else {
+      } else if (mode === TRANSLATION_MODES.BILINGUAL) {
         elements.modeBilingual.checked = true;
+      } else if (mode === TRANSLATION_MODES.CLICK_TO_TRANSLATE) {
+        elements.modeClickTranslate.checked = true;
       }
 
       // Set checkboxes
@@ -134,6 +164,7 @@ function setupEventListeners() {
   // Mode changes
   elements.modeReplace.addEventListener('change', handleModeChange);
   elements.modeBilingual.addEventListener('change', handleModeChange);
+  elements.modeClickTranslate.addEventListener('change', handleModeChange);
 
   // Settings checkboxes
   elements.autoTranslate.addEventListener('change', saveGeneralPreferences);
@@ -143,6 +174,29 @@ function setupEventListeners() {
   elements.optionsBtn.addEventListener('click', () => {
     chrome.runtime.openOptionsPage();
     window.close();
+  });
+
+  // Engine toggle
+  elements.useLLM.addEventListener('change', () => {
+    const useFreeMode = !elements.useLLM.checked;
+    elements.freeLabel.classList.toggle('active', useFreeMode);
+    elements.llmLabel.classList.toggle('active', !useFreeMode);
+    chrome.storage.sync.set({ useFreeMode });
+  });
+
+  // Click labels to toggle engine
+  elements.freeLabel.addEventListener('click', () => {
+    if (elements.useLLM.checked) {
+      elements.useLLM.checked = false;
+      elements.useLLM.dispatchEvent(new Event('change'));
+    }
+  });
+  elements.llmLabel.addEventListener('click', () => {
+    if (elements.useLLM.disabled) return;
+    if (!elements.useLLM.checked) {
+      elements.useLLM.checked = true;
+      elements.useLLM.dispatchEvent(new Event('change'));
+    }
   });
 }
 
@@ -158,7 +212,7 @@ async function updateUIState() {
 
     // Check if current tab is valid and supports content scripts
     if (!currentTab || !currentTab.id || !isContentScriptSupported(currentTab.url)) {
-      setStatus('unavailable', 'Translation not available on this page');
+      setStatus('unavailable', '此页面不可翻译');
       elements.translateBtn.disabled = true;
       elements.restoreBtn.disabled = true;
       return;
@@ -177,7 +231,7 @@ async function updateUIState() {
       updateButtonStates();
     } else {
       // Content script might not be ready, but allow translation
-      setStatus('ready', 'Ready to translate');
+      setStatus('ready', '就绪');
       isTranslated = false;
       isTranslating = false;
       updateButtonStates();
@@ -193,16 +247,16 @@ async function updateUIState() {
 function handleUIStateError(error) {
   // Don't log "Receiving end does not exist" as an error since it's expected on some pages
   if (error.message && error.message.includes('Receiving end does not exist')) {
-    setStatus('unavailable', 'Translation not available on this page');
+    setStatus('unavailable', '此页面不可翻译');
     elements.translateBtn.disabled = true;
     elements.restoreBtn.disabled = true;
   } else if (error.message && error.message.includes('Extension context invalidated')) {
-    setStatus('error', 'Extension needs to be reloaded');
+    setStatus('error', '扩展需要重新加载');
     elements.translateBtn.disabled = true;
     elements.restoreBtn.disabled = true;
   } else if (error.message && error.message.includes('timeout')) {
     // Content script might be loading, allow translation attempt
-    setStatus('ready', 'Ready to translate');
+    setStatus('ready', '就绪');
     isTranslated = false;
     isTranslating = false;
     updateButtonStates();
@@ -210,7 +264,7 @@ function handleUIStateError(error) {
     // Don't log connection errors as warnings since they're expected
 
     // Other errors - still allow translation attempt
-    setStatus('ready', 'Ready to translate');
+    setStatus('ready', '就绪');
     isTranslated = false;
     isTranslating = false;
     updateButtonStates();
@@ -248,12 +302,12 @@ async function handleTranslate() {
   try {
     // Check if extension context is still valid
     if (!chrome.runtime || !chrome.runtime.id) {
-      throw new Error('Extension context invalidated. Please reload the extension.');
+      throw new Error('扩展上下文已失效，请重新加载扩展。');
     }
 
     isTranslating = true;
     showLoading(true);
-    setStatus('translating', 'Translating page...');
+    setStatus('translating', '正在翻译页面...');
     updateButtonStates();
 
 
@@ -264,7 +318,7 @@ async function handleTranslate() {
     }
 
     // 确保模式状态正确同步
-    const currentMode = elements.modeReplace.checked ? TRANSLATION_MODES.REPLACE : TRANSLATION_MODES.BILINGUAL;
+    const currentMode = getSelectedMode();
 
     const response = await sendMessageWithTimeout(currentTab.id, {
       action: 'translate',
@@ -279,7 +333,7 @@ async function handleTranslate() {
     if (response && response.success) {
       isTranslated = response.translated;
       isTranslating = false;
-      setStatus('translated', 'Page translated successfully');
+      setStatus('translated', '页面翻译完成');
       updateButtonStates();
 
       // Close popup after successful translation
@@ -287,7 +341,7 @@ async function handleTranslate() {
         window.close();
       }, 1000);
     } else {
-      throw new Error(response?.error || 'Translation failed');
+      throw new Error(response?.error || '翻译失败');
     }
   } catch (error) {
     isTranslating = false;
@@ -301,11 +355,11 @@ async function handleTranslate() {
     }
 
     // Provide more specific error messages
-    let errorMessage = error.message || 'Translation failed';
+    let errorMessage = error.message || '翻译失败';
     if (error.message && error.message.includes('Extension context invalidated')) {
-      errorMessage = 'Extension needs to be reloaded. Please reload the extension and try again.';
+      errorMessage = '扩展需要重新加载，请重新加载扩展后重试。';
     } else if (error.message && error.message.includes('Receiving end does not exist')) {
-      errorMessage = 'Content script not available. Please refresh the page and try again.';
+      errorMessage = '内容脚本不可用，请刷新页面后重试。';
     }
 
     setStatus('error', errorMessage);
@@ -323,7 +377,7 @@ async function handleRestore() {
   try {
     // Check if extension context is still valid
     if (!chrome.runtime || !chrome.runtime.id) {
-      throw new Error('Extension context invalidated. Please reload the extension.');
+      throw new Error('扩展上下文已失效，请重新加载扩展。');
     }
 
     // Check if content script is supported
@@ -334,9 +388,9 @@ async function handleRestore() {
     showLoading(true);
 
     // Check current mode to determine restore behavior
-    const mode = elements.modeReplace.checked ? 'replace' : 'paragraph-bilingual';
+    const mode = getSelectedMode();
 
-    if (mode === 'paragraph-bilingual') {
+    if (mode === TRANSLATION_MODES.BILINGUAL) {
       // In bilingual mode, toggle between showing original only and showing both
       const response = await sendMessageWithTimeout(currentTab.id, {
         action: 'toggleBilingualView'
@@ -344,18 +398,18 @@ async function handleRestore() {
 
       if (response && response.success) {
         if (response.showingOriginalOnly) {
-          setStatus('original-only', 'Showing original text only');
-          elements.restoreBtn.textContent = 'Show Translation';
+          setStatus('original-only', '正在显示原文');
+          elements.restoreBtn.textContent = '显示翻译';
         } else {
-          setStatus('translated', 'Showing bilingual view');
-          elements.restoreBtn.textContent = 'Show Original Only';
+          setStatus('translated', '正在显示双语视图');
+          elements.restoreBtn.textContent = '仅显示原文';
         }
       } else {
-        throw new Error(response?.error || 'Toggle view failed');
+        throw new Error(response?.error || '切换视图失败');
       }
     } else {
       // In replace mode, restore original text completely
-      setStatus('restoring', 'Restoring original text...');
+      setStatus('restoring', '正在恢复原文...');
 
       const response = await sendMessageWithTimeout(currentTab.id, {
         action: 'restore'
@@ -364,7 +418,7 @@ async function handleRestore() {
       if (response && response.success) {
         isTranslated = false;
         isTranslating = false;
-        setStatus('restored', 'Original text restored');
+        setStatus('restored', '原文已恢复');
         updateButtonStates();
 
         // Close popup after successful restore
@@ -372,7 +426,7 @@ async function handleRestore() {
           window.close();
         }, 1000);
       } else {
-        throw new Error(response?.error || 'Restore failed');
+        throw new Error(response?.error || '恢复原文失败');
       }
     }
 
@@ -388,11 +442,11 @@ async function handleRestore() {
     }
 
     // Provide more specific error messages
-    let errorMessage = error.message || 'Restore failed';
+    let errorMessage = error.message || '恢复原文失败';
     if (error.message && error.message.includes('Extension context invalidated')) {
-      errorMessage = 'Extension needs to be reloaded. Please reload the extension and try again.';
+      errorMessage = '扩展需要重新加载，请重新加载扩展后重试。';
     } else if (error.message && error.message.includes('Receiving end does not exist')) {
-      errorMessage = 'Content script not available. Please refresh the page and try again.';
+      errorMessage = '内容脚本不可用，请刷新页面后重试。';
     }
 
     setStatus('error', errorMessage);
@@ -407,7 +461,7 @@ async function handleRestore() {
  * Handle translation mode change
  */
 async function handleModeChange() {
-  const mode = elements.modeReplace.checked ? TRANSLATION_MODES.REPLACE : TRANSLATION_MODES.BILINGUAL;
+  const mode = getSelectedMode();
 
   try {
     // 保存用户偏好
@@ -426,16 +480,16 @@ async function handleModeChange() {
 
         if (response && response.success) {
           // 更新状态显示
-          setStatus('translated', `Mode switched to ${mode === TRANSLATION_MODES.REPLACE ? 'Replace' : 'Bilingual'}`);
+          setStatus('translated', `已切换至${mode === TRANSLATION_MODES.REPLACE ? '替换' : '双语'}模式`);
         } else {
-          setStatus('error', 'Failed to switch mode');
+          setStatus('error', '切换模式失败');
         }
       } catch (error) {
-        setStatus('error', 'Failed to communicate with page');
+        setStatus('error', '与页面通信失败');
       }
     }
   } catch (error) {
-    setStatus('error', 'Failed to change mode');
+    setStatus('error', '切换模式失败');
   }
 }
 
@@ -494,11 +548,11 @@ async function handleInputFieldListenerToggle() {
  */
 function updateStatusDisplay(response) {
   if (response.isTranslating) {
-    setStatus('translating', 'Translating...');
+    setStatus('translating', '翻译中...');
   } else if (response.isTranslated) {
-    setStatus('translated', 'Page is translated');
+    setStatus('translated', '页面已翻译');
   } else {
-    setStatus('ready', 'Ready to translate');
+    setStatus('ready', '就绪');
   }
 }
 
@@ -518,21 +572,21 @@ function updateButtonStates() {
   elements.restoreBtn.disabled = !isTranslated || isTranslating;
 
   if (isTranslating) {
-    elements.translateBtn.textContent = 'Translating...';
+    elements.translateBtn.textContent = '翻译中...';
   } else {
-    elements.translateBtn.textContent = 'Translate Page';
+    elements.translateBtn.textContent = '翻译页面';
   }
 
   // Update restore button text based on mode
   if (isTranslated && !isTranslating) {
-    const mode = elements.modeReplace.checked ? TRANSLATION_MODES.REPLACE : TRANSLATION_MODES.BILINGUAL;
+    const mode = getSelectedMode();
     if (mode === TRANSLATION_MODES.BILINGUAL) {
-      elements.restoreBtn.textContent = 'Show Original Only';
+      elements.restoreBtn.textContent = '仅显示原文';
     } else {
-      elements.restoreBtn.textContent = 'Restore Original';
+      elements.restoreBtn.textContent = '恢复原文';
     }
   } else {
-    elements.restoreBtn.textContent = 'Restore Original';
+    elements.restoreBtn.textContent = '恢复原文';
   }
 }
 

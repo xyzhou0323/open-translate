@@ -463,39 +463,88 @@ body {
   .container {
     margin: 0;
     box-shadow: none;
+    border-radius: 0;
   }
-  
+
   .header {
-    padding: 24px 16px;
+    padding: 20px 16px;
   }
-  
+
+  .header-text h1 {
+    font-size: 22px;
+  }
+
+  .header-text p {
+    font-size: 14px;
+  }
+
   .main-content {
-    padding: 24px 16px;
+    padding: 16px 12px;
   }
-  
+
+  .section-content {
+    padding: 16px 12px;
+  }
+
   .form-row {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 12px;
   }
-  
+
   .radio-group {
     flex-direction: column;
   }
-  
+
   .footer {
-    padding: 20px 16px;
+    padding: 16px 12px;
   }
-  
+
   .footer-actions {
     flex-direction: column;
     gap: 12px;
     align-items: stretch;
   }
-  
+
   .status-message {
-    right: 10px;
-    left: 10px;
+    right: 8px;
+    left: 8px;
     min-width: auto;
+    top: 8px;
+  }
+
+  /* Mobile touch targets */
+  .primary-btn,
+  .secondary-btn,
+  .test-btn,
+  .refresh-btn {
+    min-height: 48px;
+    padding: 12px 20px;
+    font-size: 15px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .form-input,
+  .form-select {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .form-checkbox {
+    transform: scale(1.3);
+  }
+
+  .section-title {
+    padding: 14px 16px;
+    font-size: 16px;
+  }
+
+  .model-selection {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .model-selection .refresh-btn {
+    width: 100%;
   }
 }
 

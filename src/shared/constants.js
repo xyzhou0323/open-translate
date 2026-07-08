@@ -52,7 +52,8 @@ const SUPPORTED_LANGUAGES = Object.keys(LANGUAGE_MAP);
 // Translation modes
 const TRANSLATION_MODES = {
   REPLACE: 'replace',
-  BILINGUAL: 'paragraph-bilingual'
+  BILINGUAL: 'paragraph-bilingual',
+  CLICK_TO_TRANSLATE: 'click-to-translate'
 };
 
 // API configuration
@@ -70,11 +71,11 @@ const API_DEFAULTS = {
  */
 function getAPIDefaults() {
   return (typeof API_DEFAULTS !== 'undefined') ? API_DEFAULTS : {
-    URL: 'https://api.openai.com/v1/chat/completions',
-    MODEL: 'gpt-3.5-turbo',
+    URL: '',
+    MODEL: '',
     TEMPERATURE: 0.5,
     MAX_TOKENS: 8000,
-    TIMEOUT: 30000
+    TIMEOUT: 60000
   };
 }
 

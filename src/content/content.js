@@ -7,6 +7,8 @@
 let textExtractor = null;
 const translationRenderer = new TranslationRenderer();
 let translationService = null;
+let translationCorrector = null;
+let freeTranslator = null;
 let inputFieldListener = null;
 
 // State management
@@ -16,7 +18,9 @@ let isNavigating = false; // 新增：标记是否正在导航
 let currentTextNodes = [];
 let currentTranslations = [];
 let translationMode = TRANSLATION_MODES.REPLACE; // 统一默认为替换模式
+let clickableParagraphGroups = []; // paragraph groups for click-to-translate mode
 let dynamicTranslationEnabled = true;
+let useFreeMode = true;
 let scrollTimeout = null;
 let retryCheckInterval = null;
 let retryTimeoutId = null;
@@ -28,6 +32,10 @@ async function initialize() {
   try {
     translationService = new TranslationService();
     await translationService.initialize();
+    freeTranslator = new FreeTranslator();
+    if (typeof BUILTIN_GLOSSARY !== 'undefined') {
+      translationCorrector = new TranslationCorrector(BUILTIN_GLOSSARY);
+    }
     await loadUserPreferences();
     setupMessageListeners();
     setupContextMenu();
@@ -62,10 +70,12 @@ async function loadUserPreferences() {
       'excludeSelectors',
       'preserveFormatting',
       'smartContentEnabled',
-      'inputFieldListenerEnabled'
+      'inputFieldListenerEnabled',
+      'useFreeMode'
     ], (result) => {
       // 保持与初始默认值一致：如果用户没有设置，使用 REPLACE 模式
       translationMode = result.translationMode || TRANSLATION_MODES.REPLACE;
+      useFreeMode = result.useFreeMode !== undefined ? result.useFreeMode : true;
       translationRenderer.setMode(translationMode);
 
       // 如果是Replace模式，确保清理任何可能的双语模式残留
@@ -245,7 +255,7 @@ async function handleTranslateRequest(options = {}) {
   const requestedMode = options.translationMode || translationMode;
 
   // 验证模式有效性并更新全局状态
-  if ([TRANSLATION_MODES.REPLACE, TRANSLATION_MODES.BILINGUAL].includes(requestedMode)) {
+  if ([TRANSLATION_MODES.REPLACE, TRANSLATION_MODES.BILINGUAL, TRANSLATION_MODES.CLICK_TO_TRANSLATE].includes(requestedMode)) {
     translationMode = requestedMode;
     translationRenderer.setMode(requestedMode);
   }
@@ -330,12 +340,61 @@ async function handleTranslateRequest(options = {}) {
       currentTextNodes = [];
       currentTranslations = [];
 
+      // Click-to-translate mode: set up click handlers instead of auto-translating
+      if (translationMode === TRANSLATION_MODES.CLICK_TO_TRANSLATE) {
+        clickableParagraphGroups = paragraphGroups;
+
+        translationRenderer.setupClickToTranslateMode(paragraphGroups, async (group, container) => {
+          try {
+            if (isNavigating) return;
+
+            const useFreeTranslator = useFreeMode !== false;
+            const results = useFreeTranslator
+              ? await freeTranslator.translateParagraphGroups([group], targetLanguage, sourceLanguage, null, { translationMode: TRANSLATION_MODES.REPLACE })
+              : await translationService.translateParagraphGroups([group], targetLanguage, sourceLanguage, null, { translationMode: TRANSLATION_MODES.REPLACE });
+
+            if (results && results.length > 0) {
+              const result = results[0];
+              if (result.success) {
+                translationRenderer.renderSingleResult(result, TRANSLATION_MODES.REPLACE);
+                container.classList.add('ot-click-translated');
+                currentTextNodes.push(result);
+                currentTranslations.push(result.translation);
+              }
+            }
+          } catch (e) {
+            container.classList.remove('ot-click-translating');
+          }
+        });
+
+        isTranslated = true;
+        notifyStatusChange('translated', {
+          totalTranslated: 0,
+          mode: translationMode
+        });
+        return;
+      }
+
+      // 标记所有段落为"翻译中"，提供视觉等待提示
+      paragraphGroups.forEach(group => {
+        if (group.container) {
+          group.container.classList.add('ot-translating');
+        }
+      });
+
       // 实时翻译进度回调函数
       const progressCallback = async (result, completed, total) => {
         try {
           // 检查是否正在导航，如果是则停止翻译
           if (isNavigating) {
             return;
+          }
+
+          // Post-processing glossary correction
+          // Free mode: always correct. LLM mode: respect enableCorrection config.
+          const correctionEnabled = useFreeMode !== false || translationService.config?.enableCorrection !== false;
+          if (result.success && translationCorrector && correctionEnabled && result.originalText && result.translation) {
+            result.translation = translationCorrector.correct(result.originalText, result.translation);
           }
 
           // 立即渲染单个翻译结果
@@ -371,16 +430,26 @@ async function handleTranslateRequest(options = {}) {
         }
       };
 
-      const paragraphResults = await translationService.translateParagraphGroups(
-        paragraphGroups,
-        targetLanguage,
-        sourceLanguage,
-        progressCallback,
-        { translationMode: translationMode }
-      );
-
-      // 检查是否有失败的元素需要重试
-      await handleTranslationRetries(targetLanguage, sourceLanguage);
+      // Route to free translator based on user preference
+      if (useFreeMode !== false) {
+        await freeTranslator.translateParagraphGroups(
+          paragraphGroups,
+          targetLanguage,
+          sourceLanguage,
+          progressCallback,
+          { translationMode: translationMode }
+        );
+      } else {
+        await translationService.translateParagraphGroups(
+          paragraphGroups,
+          targetLanguage,
+          sourceLanguage,
+          progressCallback,
+          { translationMode: translationMode }
+        );
+        // 检查是否有失败的元素需要重试
+        await handleTranslationRetries(targetLanguage, sourceLanguage);
+      }
 
     }
 
@@ -448,6 +517,46 @@ async function handleRestoreRequest() {
     // 停止重试监控
     stopRetryMonitoring();
 
+    if (translationMode === TRANSLATION_MODES.CLICK_TO_TRANSLATE) {
+      // Restore all individually translated paragraphs
+      translationRenderer.restoreOriginalText();
+
+      // Re-apply click-to-translate indicators on stored paragraph groups
+      translationRenderer.cleanupClickToTranslateMode();
+      translationRenderer.setupClickToTranslateMode(clickableParagraphGroups, async (group, container) => {
+        try {
+          if (isNavigating) return;
+
+          const targetLanguage = 'zh-CN';
+          const sourceLanguage = 'auto';
+
+          const useFreeTranslator = useFreeMode !== false;
+          const results = useFreeTranslator
+            ? await freeTranslator.translateParagraphGroups([group], targetLanguage, sourceLanguage, null, { translationMode: TRANSLATION_MODES.REPLACE })
+            : await translationService.translateParagraphGroups([group], targetLanguage, sourceLanguage, null, { translationMode: TRANSLATION_MODES.REPLACE });
+
+          if (results && results.length > 0) {
+            const result = results[0];
+            if (result.success) {
+              translationRenderer.renderSingleResult(result, TRANSLATION_MODES.REPLACE);
+              container.classList.add('ot-click-translated');
+              currentTextNodes.push(result);
+              currentTranslations.push(result.translation);
+            }
+          }
+        } catch (e) {
+          container.classList.remove('ot-click-translating');
+        }
+      });
+
+      isTranslated = false;
+      currentTextNodes = [];
+      currentTranslations = [];
+
+      notifyStatusChange('restored');
+      return;
+    }
+
     if (translationMode === 'paragraph-bilingual') {
       translationRenderer.showOriginalOnly();
       isTranslated = true;
@@ -496,7 +605,7 @@ async function handleToggleBilingualView() {
  * Handle translation mode switch request
  */
 async function handleSwitchModeRequest(newMode) {
-  if (!['replace', 'paragraph-bilingual'].includes(newMode)) {
+  if (!['replace', 'paragraph-bilingual', 'click-to-translate'].includes(newMode)) {
     throw new Error(`Invalid translation mode: ${newMode}`);
   }
 
@@ -507,6 +616,12 @@ async function handleSwitchModeRequest(newMode) {
     }
 
     const oldMode = translationMode;
+
+    // Clean up click-to-translate handlers when switching away
+    if (oldMode === TRANSLATION_MODES.CLICK_TO_TRANSLATE && newMode !== TRANSLATION_MODES.CLICK_TO_TRANSLATE) {
+      translationRenderer.cleanupClickToTranslateMode();
+      clickableParagraphGroups = [];
+    }
 
     // 更新全局状态
     translationMode = newMode;
@@ -677,6 +792,12 @@ function setupContentObserver() {
  * Clean up resources
  */
 function cleanup() {
+  // Clean up click-to-translate mode
+  if (translationMode === TRANSLATION_MODES.CLICK_TO_TRANSLATE) {
+    translationRenderer.cleanupClickToTranslateMode();
+    clickableParagraphGroups = [];
+  }
+
   if (isTranslated) {
     translationRenderer.restoreOriginalText();
   }

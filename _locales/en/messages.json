@@ -1,15 +1,15 @@
 {
   "extensionName": {
-    "message": "Open Translate",
+    "message": "ND Translate",
     "description": "Name of the extension"
   },
   "extensionDescription": {
-    "message": "A web page translation extension compatible with OpenAI API",
+    "message": "Web page translation extension with neurodiversity terminology glossary. Supports replace/bilingual modes, progressive rendering, and OpenAI-compatible API.",
     "description": "Extension description"
   },
 
   "popup_title": {
-    "message": "Open Translate",
+    "message": "ND Translate",
     "description": "Title in popup"
   },
   "popup_ready_to_translate": {
@@ -72,7 +72,7 @@
   },
 
   "options_title": {
-    "message": "Open Translate Settings",
+    "message": "ND Translate Settings",
     "description": "Options page title"
   },
   "options_subtitle": {

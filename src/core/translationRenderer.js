@@ -35,12 +35,75 @@ class TranslationRenderer {
    */
   setMode(mode) {
     // 验证模式有效性
-    if (![TRANSLATION_MODES.REPLACE, TRANSLATION_MODES.BILINGUAL].includes(mode)) {
+    if (![TRANSLATION_MODES.REPLACE, TRANSLATION_MODES.BILINGUAL, TRANSLATION_MODES.CLICK_TO_TRANSLATE].includes(mode)) {
       this.translationMode = TRANSLATION_MODES.REPLACE;
       return;
     }
 
     this.translationMode = mode;
+  }
+
+  /**
+   * Set up click-to-translate mode — attach click handlers and visual indicators to paragraph containers
+   */
+  setupClickToTranslateMode(paragraphGroups, translateCallback) {
+    this.clickableParagraphGroups = paragraphGroups;
+
+    paragraphGroups.forEach(group => {
+      const container = group.container;
+      if (!container || container.classList.contains('ot-clickable-paragraph')) return;
+
+      container.classList.add('ot-clickable-paragraph');
+
+      const indicator = document.createElement('span');
+      indicator.className = 'ot-click-indicator';
+      indicator.textContent = 'T';
+      container.appendChild(indicator);
+
+      container._otParagraphGroup = group;
+
+      container._otClickHandler = async (event) => {
+        event.stopPropagation();
+        if (container.classList.contains('ot-click-translated') ||
+            container.classList.contains('ot-click-translating')) {
+          return;
+        }
+        container.classList.add('ot-click-translating');
+        try {
+          await translateCallback(group, container);
+        } catch (e) {
+          container.classList.remove('ot-click-translating');
+        }
+      };
+
+      container.addEventListener('click', container._otClickHandler);
+    });
+  }
+
+  /**
+   * Clean up click-to-translate mode — remove all handlers, classes, and indicator elements
+   */
+  cleanupClickToTranslateMode() {
+    if (!this.clickableParagraphGroups) return;
+
+    this.clickableParagraphGroups.forEach(group => {
+      const container = group.container;
+      if (!container) return;
+
+      if (container._otClickHandler) {
+        container.removeEventListener('click', container._otClickHandler);
+        delete container._otClickHandler;
+      }
+
+      container.classList.remove('ot-clickable-paragraph', 'ot-click-translated', 'ot-click-translating');
+
+      const indicator = container.querySelector('.ot-click-indicator');
+      if (indicator) indicator.remove();
+
+      delete container._otParagraphGroup;
+    });
+
+    this.clickableParagraphGroups = null;
   }
 
   /**
@@ -232,7 +295,7 @@ class TranslationRenderer {
 
       const actualMode = mode !== null ? mode : this.translationMode;
 
-      const validMode = [TRANSLATION_MODES.REPLACE, TRANSLATION_MODES.BILINGUAL].includes(actualMode)
+      const validMode = [TRANSLATION_MODES.REPLACE, TRANSLATION_MODES.BILINGUAL, TRANSLATION_MODES.CLICK_TO_TRANSLATE].includes(actualMode)
         ? actualMode
         : TRANSLATION_MODES.REPLACE;
 
@@ -253,10 +316,19 @@ class TranslationRenderer {
         this.createParagraphBilingualDisplay(result);
       }
 
+      // Remove pending indicator
+      if (result.container) {
+        result.container.classList.remove('ot-translating');
+      }
+
       this.renderedResults.add(resultId);
 
     } catch (error) {
-      // 渲染失败也要追踪
+      // 渲染失败也要追踪；失败时也移除等待状态
+      if (result.container) {
+        result.container.classList.remove('ot-translating');
+      }
+
       const failedResult = {
         ...result,
         success: false,
@@ -1609,7 +1681,7 @@ class TranslationRenderer {
    */
   async switchMode(newMode, textNodes, translations) {
     // 验证新模式的有效性
-    if (![TRANSLATION_MODES.REPLACE, TRANSLATION_MODES.BILINGUAL].includes(newMode)) {
+    if (![TRANSLATION_MODES.REPLACE, TRANSLATION_MODES.BILINGUAL, TRANSLATION_MODES.CLICK_TO_TRANSLATE].includes(newMode)) {
       return;
     }
 

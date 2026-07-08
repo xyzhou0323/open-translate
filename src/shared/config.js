@@ -7,9 +7,9 @@ class ConfigManager {
   constructor() {
     this.defaultConfig = {
       translationConfig: {
-        apiUrl: 'https://api.openai.com/v1/chat/completions',
+        apiUrl: '',
         apiKey: '',
-        model: 'gpt-3.5-turbo',
+        model: '',
         customModel: '',
         temperature: 0.5,
         maxTokens: getAPIDefault('MAX_TOKENS', 8000),
@@ -21,14 +21,17 @@ class ConfigManager {
       autoTranslate: false,
       preserveFormatting: true,
       excludeSelectors: '',
-      batchSize: 8,
+      batchSize: 5,
       retryAttempts: 2,
-      enableMerge: true,
+      enableMerge: false,
       shortTextThreshold: 50,
       maxMergedLength: 1000,
       maxMergedCount: 10,
       smartContentEnabled: true,
-      enableSmartBatching: true
+      enableSmartBatching: false,
+      enableGlossary: true,
+      enableCorrection: true,
+      useFreeMode: true
     };
 
     this.storageKeys = [
@@ -46,6 +49,9 @@ class ConfigManager {
       'maxMergedLength',
       'maxMergedCount',
       'smartContentEnabled',
+      'enableGlossary',
+      'enableCorrection',
+      'useFreeMode',
       'availableModels'
     ];
   }
@@ -216,7 +222,10 @@ class ConfigManager {
           shortTextThreshold: fullConfig.shortTextThreshold,
           maxMergedLength: fullConfig.maxMergedLength,
           maxMergedCount: fullConfig.maxMergedCount,
-          enableSmartBatching: fullConfig.enableSmartBatching
+          enableSmartBatching: fullConfig.enableSmartBatching,
+          enableGlossary: fullConfig.enableGlossary,
+          enableCorrection: fullConfig.enableCorrection,
+          useFreeMode: fullConfig.useFreeMode
         };
       case 'extractor':
         return {

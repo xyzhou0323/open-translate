@@ -1,15 +1,15 @@
 {
   "extensionName": {
-    "message": "Open Translate",
+    "message": "ND Translate",
     "description": "扩展名称"
   },
   "extensionDescription": {
-    "message": "一款网页翻译扩展，兼容 OpenAI API",
+    "message": "网页翻译扩展，内置神经多样性术语标准化翻译，兼容 OpenAI 兼容 API。支持替换/双语模式、逐段渐进渲染、术语表强制一致翻译。",
     "description": "扩展描述"
   },
 
   "popup_title": {
-    "message": "Open Translate",
+    "message": "ND Translate",
     "description": "弹窗标题"
   },
   "popup_ready_to_translate": {
@@ -72,7 +72,7 @@
   },
 
   "options_title": {
-    "message": "Open Translate 设置",
+    "message": "ND Translate 设置",
     "description": "设置页面标题"
   },
   "options_subtitle": {

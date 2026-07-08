@@ -1,9 +1,12 @@
 {
   "manifest_version": 3,
   "name": "__MSG_extensionName__",
-  "version": "1.0.7",
+  "version": "1.0.0",
   "description": "__MSG_extensionDescription__",
-  "default_locale": "en",
+  "author": "XyZ",
+  "homepage_url": "https://github.com/xyzhou0323/open-translate",
+  "default_locale": "zh_CN",
+  "minimum_chrome_version": "88",
   "permissions": [
     "activeTab",
     "storage",
@@ -25,6 +28,7 @@
         "src/shared/constants.js",
         "src/shared/utils.js",
         "src/shared/config.js",
+        "src/shared/glossary.js",
         "src/shared/errorHandler.js",
         "src/shared/stateManager.js",
         "src/core/smartContentExtractor.js",
@@ -32,6 +36,8 @@
         "src/core/translationRenderer.js",
         "src/core/tokenCalculator.js",
         "src/core/smartBatchProcessor.js",
+        "src/core/freeTranslator.js",
+        "src/core/translationCorrector.js",
         "src/core/translator.js",
         "src/core/inputFieldListener.js",
         "src/content/content.js"

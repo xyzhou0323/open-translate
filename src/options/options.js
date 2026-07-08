@@ -106,6 +106,10 @@ function initializeElements() {
   // Smart Batching Settings
   elements.enableSmartBatching = document.getElementById('enableSmartBatching');
 
+  // Glossary Settings
+  elements.enableGlossary = document.getElementById('enableGlossary');
+  elements.enableCorrection = document.getElementById('enableCorrection');
+
   // Actions
   elements.saveSettings = document.getElementById('saveSettings');
   elements.resetSettings = document.getElementById('resetSettings');
@@ -151,7 +155,7 @@ async function loadSettings() {
     const defaultSelectors = DOM_SELECTORS.EXCLUDE_DEFAULT.join('\n');
     const userSelectors = config.excludeSelectors || '';
 
-    let displayContent = `# Default Exclude Selectors (built-in):\n${defaultSelectors}\n\n# User Additional Selectors:`;
+    let displayContent = `# 默认排除选择器（内置）：\n${defaultSelectors}\n\n# 用户自定义排除选择器：`;
     if (userSelectors) {
       displayContent += `\n${userSelectors}`;
     }
@@ -176,6 +180,14 @@ async function loadSettings() {
     // Smart Batching Settings
     if (elements.enableSmartBatching) {
       elements.enableSmartBatching.checked = config.enableSmartBatching !== false; // Default to true
+    }
+
+    // Glossary Settings
+    if (elements.enableGlossary) {
+      elements.enableGlossary.checked = config.enableGlossary !== false; // Default to true
+    }
+    if (elements.enableCorrection) {
+      elements.enableCorrection.checked = config.enableCorrection !== false; // Default to true
     }
 
     // Update model selection UI
@@ -262,7 +274,7 @@ async function testApiConnection() {
 
   try {
     testBtn.disabled = true;
-    testBtn.innerHTML = '<span>Testing...</span>';
+    testBtn.innerHTML = '<span>测试中...</span>';
     testResult.classList.add('hidden');
 
     const config = collectApiConfig();
@@ -313,17 +325,17 @@ Translation:`
     }
 
     testResult.className = 'test-result success';
-    testResult.textContent = 'Connection successful! API is working correctly.';
+    testResult.textContent = '连接成功！API 工作正常。';
     testResult.classList.remove('hidden');
 
   } catch (error) {
     errorHandler.handle(error, 'options-test-connection');
     testResult.className = 'test-result error';
-    testResult.textContent = `Connection failed: ${formatError(error)}`;
+    testResult.textContent = `连接失败：${formatError(error)}`;
     testResult.classList.remove('hidden');
   } finally {
     testBtn.disabled = false;
-    testBtn.textContent = 'Test Connection';
+    testBtn.textContent = '测试连接';
   }
 }
 
@@ -336,18 +348,18 @@ function updateModelSelectionUI() {
 
   if (customModelValue) {
     // Custom model has priority
-    elements.modelPriorityIndicator.textContent = '(Active)';
+    elements.modelPriorityIndicator.textContent = '（生效中）';
     elements.modelPriorityIndicator.className = 'priority-indicator active';
     elements.customModel.classList.add('active');
     elements.model.classList.add('inactive');
-    elements.modelHelp.textContent = `Using custom model: "${customModelValue}" (overrides dropdown selection)`;
+    elements.modelHelp.textContent = `正在使用自定义模型："${customModelValue}"（覆盖下拉选择）`;
   } else {
     // Using dropdown selection
-    elements.modelPriorityIndicator.textContent = '(Inactive)';
+    elements.modelPriorityIndicator.textContent = '（未生效）';
     elements.modelPriorityIndicator.className = 'priority-indicator inactive';
     elements.customModel.classList.remove('active');
     elements.model.classList.remove('inactive');
-    elements.modelHelp.textContent = `Using selected model: "${selectedModel}" (enter custom model above to override)`;
+    elements.modelHelp.textContent = `正在使用所选模型："${selectedModel}"（输入自定义模型名可覆盖）`;
   }
 }
 
@@ -387,12 +399,12 @@ async function loadAvailableModels() {
       }
     } else {
       // Show empty state with instruction
-      modelSelect.innerHTML = '<option value="">Please configure API settings and refresh models</option>';
+      modelSelect.innerHTML = '<option value="">请先配置 API 设置并刷新模型列表</option>';
     }
 
   } catch (error) {
     console.warn('Failed to load models:', error);
-    modelSelect.innerHTML = '<option value="">Failed to load models</option>';
+    modelSelect.innerHTML = '<option value="">加载模型列表失败</option>';
   }
 }
 
@@ -413,7 +425,7 @@ function populateModelSelect(models) {
   } else {
     const option = document.createElement('option');
     option.value = '';
-    option.textContent = 'No models available';
+    option.textContent = '无可用模型';
     modelSelect.appendChild(option);
   }
 }
@@ -465,7 +477,7 @@ async function refreshAvailableModels() {
 
   try {
     refreshBtn.disabled = true;
-    refreshBtn.textContent = 'Loading...';
+    refreshBtn.textContent = '加载中...';
 
     // Get API configuration for model fetching
     const apiUrl = elements.apiUrl.value.trim();
@@ -492,14 +504,14 @@ async function refreshAvailableModels() {
       modelSelect.value = currentValue;
     }
 
-    showStatusMessage('Models refreshed successfully!', 'success');
+    showStatusMessage('模型列表刷新成功！', 'success');
 
   } catch (error) {
     errorHandler.handle(error, 'options-refresh-models');
-    showStatusMessage(`Failed to refresh models: ${formatError(error)}`, 'error');
+    showStatusMessage(`刷新模型失败：${formatError(error)}`, 'error');
   } finally {
     refreshBtn.disabled = false;
-    refreshBtn.textContent = 'Refresh Models';
+    refreshBtn.textContent = '刷新模型';
   }
 }
 
@@ -517,7 +529,7 @@ function extractUserSelectors(textareaValue) {
     const trimmedLine = line.trim();
 
     // 检查是否进入用户自定义区域
-    if (trimmedLine.startsWith('#') && trimmedLine.includes('User Additional Selectors')) {
+    if (trimmedLine.startsWith('#') && (trimmedLine.includes('User Additional Selectors') || trimmedLine.includes('用户自定义排除选择器'))) {
       inUserSection = true;
       continue;
     }
@@ -559,11 +571,14 @@ async function saveSettings() {
       maxMergedLength: elements.maxMergedLength ? parseInt(elements.maxMergedLength.value) : 1000,
       maxMergedCount: elements.maxMergedCount ? parseInt(elements.maxMergedCount.value) : 10,
       // Smart Batching Settings
-      enableSmartBatching: elements.enableSmartBatching ? elements.enableSmartBatching.checked : true
+      enableSmartBatching: elements.enableSmartBatching ? elements.enableSmartBatching.checked : true,
+      // Glossary Settings
+      enableGlossary: elements.enableGlossary ? elements.enableGlossary.checked : true,
+      enableCorrection: elements.enableCorrection ? elements.enableCorrection.checked : true
     };
 
     await configManager.saveConfig(settings);
-    showStatusMessage('Settings saved successfully!', 'success');
+    showStatusMessage('设置保存成功！', 'success');
 
   } catch (error) {
     errorHandler.handle(error, 'options-save-settings');
@@ -575,14 +590,14 @@ async function saveSettings() {
  * Reset settings to defaults
  */
 async function resetSettings() {
-  if (!confirm('Are you sure you want to reset all settings to defaults? This action cannot be undone.')) {
+  if (!confirm('确定要恢复所有设置为默认值吗？此操作不可撤销。')) {
     return;
   }
 
   try {
     await configManager.resetToDefaults();
     await loadSettings();
-    showStatusMessage('Settings reset to defaults successfully!', 'success');
+    showStatusMessage('设置已恢复为默认值！', 'success');
 
   } catch (error) {
     errorHandler.handle(error, 'options-reset-settings');

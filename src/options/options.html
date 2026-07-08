@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Open Translate - Settings</title>
+  <title>ND Translate - 设置</title>
   <link rel="stylesheet" href="options.css">
 </head>
 <body>
@@ -12,8 +12,8 @@
     <header class="header">
       <div class="header-content">
         <div class="header-text">
-          <h1>Open Translate Settings</h1>
-          <p>Configure your translation preferences and API settings</p>
+          <h1>ND Translate 设置</h1>
+          <p>配置翻译偏好和 API 设置</p>
         </div>
       </div>
     </header>
@@ -22,43 +22,43 @@
     <main class="main-content">
       <!-- API Configuration Section -->
       <section class="settings-section">
-        <h2 class="section-title">API Configuration</h2>
+        <h2 class="section-title">API 配置</h2>
         <div class="section-content">
           <div class="form-group">
-            <label for="apiUrl" class="form-label">API Endpoint URL</label>
-            <input type="url" id="apiUrl" class="form-input" placeholder="https://api.openai.com/v1/chat/completions">
-            <small class="form-help">Enter the OpenAI-compatible API endpoint URL</small>
+            <label for="apiUrl" class="form-label">API 端点地址</label>
+            <input type="url" id="apiUrl" class="form-input" placeholder="例如：https://api.deepseek.com/v1/chat/completions">
+            <small class="form-help">输入兼容 OpenAI 格式的 API 端点地址。留空时将使用免费 Google 翻译。</small>
           </div>
 
           <div class="form-group">
-            <label for="apiKey" class="form-label">API Key</label>
+            <label for="apiKey" class="form-label">API 密钥</label>
             <div class="input-group">
-              <input type="password" id="apiKey" class="form-input" placeholder="Enter your API key">
-              <button type="button" id="toggleApiKey" class="toggle-btn" title="Show/Hide API Key">
+              <input type="password" id="apiKey" class="form-input" placeholder="输入你的 API 密钥">
+              <button type="button" id="toggleApiKey" class="toggle-btn" title="显示/隐藏 API 密钥">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
                 </svg>
               </button>
             </div>
-            <small class="form-help">Your API key will be stored securely in Chrome's sync storage</small>
+            <small class="form-help">API 密钥将安全存储在浏览器同步存储中。留空则自动使用免费 Google 翻译。</small>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label for="model" class="form-label">Model</label>
+              <label for="model" class="form-label">模型</label>
               <div class="model-selection">
                 <select id="model" class="form-select">
-                  <option value="">Loading models...</option>
+                  <option value="">请先配置 API</option>
                 </select>
-                <button type="button" id="refreshModels" class="refresh-btn" title="Refresh available models">
-                  Refresh Models
+                <button type="button" id="refreshModels" class="refresh-btn" title="刷新可用模型">
+                  刷新模型
                 </button>
               </div>
-              <small class="form-help">Select a model or use custom model below</small>
+              <small class="form-help">选择模型，或使用下方的自定义模型名</small>
             </div>
 
             <div class="form-group">
-              <label for="temperature" class="form-label">Temperature</label>
+              <label for="temperature" class="form-label">温度参数</label>
               <input type="range" id="temperature" class="form-range" min="0" max="1" step="0.1" value="0.3">
               <span id="temperatureValue" class="range-value">0.3</span>
             </div>
@@ -66,28 +66,28 @@
 
           <div class="form-group">
             <label for="customModel" class="form-label">
-              Custom Model Name
+              自定义模型名
               <span class="priority-indicator" id="modelPriorityIndicator"></span>
             </label>
-            <input type="text" id="customModel" class="form-input" placeholder="Enter custom model name (optional)">
-            <small class="form-help" id="modelHelp">Leave empty to use the selected model above. Custom model name will override the selected model.</small>
+            <input type="text" id="customModel" class="form-input" placeholder="输入自定义模型名（可选）">
+            <small class="form-help" id="modelHelp">留空则使用上方选择的模型。自定义模型名将覆盖所选模型。</small>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label for="maxTokens" class="form-label">Max Tokens</label>
+              <label for="maxTokens" class="form-label">最大 Token 数</label>
               <input type="number" id="maxTokens" class="form-input" min="1500" max="16000" value="8000">
             </div>
 
             <div class="form-group">
-              <label for="timeout" class="form-label">Timeout (seconds)</label>
+              <label for="timeout" class="form-label">超时时间（秒）</label>
               <input type="number" id="timeout" class="form-input" min="5" max="120" value="30">
             </div>
           </div>
 
           <div class="form-group">
             <button type="button" id="testConnection" class="test-btn">
-              Test Connection
+              测试连接
             </button>
             <div id="testResult" class="test-result hidden"></div>
           </div>
@@ -98,26 +98,26 @@
 
       <!-- Advanced Settings Section -->
       <section class="settings-section">
-        <h2 class="section-title">Advanced Settings</h2>
+        <h2 class="section-title">高级设置</h2>
         <div class="section-content">
           <div class="form-group">
             <label class="form-label">
               <input type="checkbox" id="smartContentEnabled" class="form-checkbox">
-              Enable intelligent content recognition
+              启用智能内容识别
             </label>
-            <small class="form-help">The Mozilla Readability algorithm is used to automatically identify the main content area of web pages, reducing the need for manual configuration. It is enabled by default. When disabled, the traditional element identification method will be used.</small>
+            <small class="form-help">使用 Mozilla Readability 算法自动识别网页主体内容区域，减少手动配置需求。默认启用，关闭后将使用传统元素识别方法。</small>
           </div>
 
           <div class="form-group">
             <label class="form-label">
               <input type="checkbox" id="inputFieldListenerEnabled" class="form-checkbox">
-              Enable input field translation trigger
+              启用输入框翻译触发
             </label>
-            <small class="form-help">When enabled, you can trigger translation by pressing a hotkey in any text input field. The translation result will be displayed in a popup near the input field.</small>
+            <small class="form-help">启用后，在任意文本输入框中按下快捷键即可触发翻译，翻译结果将显示在输入框附近的弹出窗口中。</small>
           </div>
 
           <div class="form-group">
-            <label for="inputFieldTriggerKey" class="form-label">Input Field Trigger Key</label>
+            <label for="inputFieldTriggerKey" class="form-label">输入框触发快捷键</label>
             <select id="inputFieldTriggerKey" class="form-select">
               <option value="F2">F2</option>
               <option value="F3">F3</option>
@@ -127,11 +127,11 @@
               <option value="F11">F11</option>
               <option value="F12">F12</option>
             </select>
-            <small class="form-help">Select the key to trigger translation in input fields. F2 is recommended as it's rarely used by websites.</small>
+            <small class="form-help">选择触发输入框翻译的按键。推荐 F2，因为网站很少使用该键。</small>
           </div>
 
           <div class="form-group">
-            <label class="form-label">Trigger Key Modifiers</label>
+            <label class="form-label">触发键修饰符</label>
             <div style="display: flex; gap: 15px; margin-top: 5px;">
               <label class="form-label">
                 <input type="checkbox" id="inputFieldCtrlKey" class="form-checkbox">
@@ -146,64 +146,85 @@
                 Shift
               </label>
             </div>
-            <small class="form-help">Optional modifier keys to combine with the trigger key (e.g., Ctrl+F2).</small>
+            <small class="form-help">可选的组合键修饰符（例如：Ctrl + F2）。</small>
           </div>
 
           <div class="form-group">
             <label class="form-label">
               <input type="checkbox" id="autoDetectPageLanguage" class="form-checkbox">
-              Auto-detect page language for input field translation
+              自动检测页面语言用于输入框翻译
             </label>
-            <small class="form-help">When enabled, the system will detect the webpage's language and translate input text to that language. For example, on a Chinese website, English input will be translated to Chinese.</small>
+            <small class="form-help">启用后，系统将检测网页的语言，并将输入文本翻译为该语言。例如，在中文网站上，英文输入将被翻译为中文。</small>
           </div>
 
           <div class="form-group">
-            <label for="defaultTargetLanguage" class="form-label">Default Target Language</label>
+            <label for="defaultTargetLanguage" class="form-label">默认目标语言</label>
             <select id="defaultTargetLanguage" class="form-select">
               <option value="en">English</option>
-              <option value="zh-CN">Chinese (Simplified)</option>
-              <option value="zh-TW">Chinese (Traditional)</option>
-              <option value="ja">Japanese</option>
-              <option value="ko">Korean</option>
-              <option value="fr">French</option>
-              <option value="de">German</option>
-              <option value="es">Spanish</option>
-              <option value="ru">Russian</option>
-              <option value="pt">Portuguese</option>
-              <option value="it">Italian</option>
-              <option value="ar">Arabic</option>
+              <option value="zh-CN">简体中文</option>
+              <option value="zh-TW">繁体中文</option>
+              <option value="ja">日本語</option>
+              <option value="ko">한국어</option>
+              <option value="fr">Français</option>
+              <option value="de">Deutsch</option>
+              <option value="es">Español</option>
+              <option value="ru">Русский</option>
+              <option value="pt">Português</option>
+              <option value="it">Italiano</option>
+              <option value="ar">العربية</option>
             </select>
-            <small class="form-help">Fallback language used when page language detection fails or when the input language matches the page language.</small>
+            <small class="form-help">页面语言检测失败或输入语言与页面语言相同时使用的备用语言。</small>
           </div>
 
           <div class="form-group">
-            <label for="excludeSelectors" class="form-label">Exclude Selectors</label>
-            <textarea id="excludeSelectors" class="form-textarea" rows="12" placeholder="Loading exclude selectors..."></textarea>
-            <small class="form-help">This shows all exclude selectors. Default exclusions are built-in and shown at the top. Add your custom selectors after the "# User Additional Selectors:" comment line.</small>
+            <label for="excludeSelectors" class="form-label">排除选择器</label>
+            <textarea id="excludeSelectors" class="form-textarea" rows="12" placeholder="正在加载排除选择器..."></textarea>
+            <small class="form-help">显示所有排除选择器。默认排除项显示在顶部，在 "# 用户自定义排除选择器:" 注释行后添加自定义选择器。</small>
           </div>
 
           <div class="form-group">
-            <label for="batchSize" class="form-label">Concurrent Translation Limit</label>
+            <label for="batchSize" class="form-label">并发翻译数</label>
             <input type="number" id="batchSize" class="form-input" min="1" max="20" value="5">
-            <small class="form-help">Number of paragraphs to translate concurrently (higher values = faster translation but more API usage)</small>
+            <small class="form-help">同时翻译的段落数量（值越大翻译越快，但 API 调用越密集）</small>
           </div>
 
           <div class="form-group">
-            <label for="retryAttempts" class="form-label">Retry Attempts</label>
+            <label for="retryAttempts" class="form-label">重试次数</label>
             <input type="number" id="retryAttempts" class="form-input" min="0" max="5" value="2">
-            <small class="form-help">Number of retry attempts for failed translations</small>
+            <small class="form-help">翻译失败时的重试次数</small>
           </div>
 
           <!-- Smart Batching Configuration -->
           <div class="form-section">
-            <h3 class="form-section-title">Smart Batching Optimization</h3>
+            <h3 class="form-section-title">智能批处理优化</h3>
 
             <div class="form-group">
               <label class="form-label">
                 <input type="checkbox" id="enableSmartBatching" class="form-checkbox">
-                Enable Smart Batching
+                启用智能批处理
               </label>
-              <small class="form-help">Use intelligent token-based batching to minimize API calls and maximize efficiency</small>
+              <small class="form-help">使用基于 token 的智能批处理，最小化 API 调用次数并最大化效率。关闭后可实现逐段翻译、逐段显示。</small>
+            </div>
+          </div>
+
+          <!-- Glossary Configuration -->
+          <div class="form-section">
+            <h3 class="form-section-title">术语表</h3>
+
+            <div class="form-group">
+              <label class="form-label">
+                <input type="checkbox" id="enableGlossary" class="form-checkbox">
+                启用内置术语表
+              </label>
+              <small class="form-help">强制 LLM 对神经多样性术语使用标准化中文翻译（如 "Neurodiversity" → "神经多样性"、"Stimming" → "调节行为"）</small>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">
+                <input type="checkbox" id="enableCorrection" class="form-checkbox">
+                启用后处理术语修正
+              </label>
+              <small class="form-help">翻译完成后在本地对译文进行术语替换修正（如将"自闭症"修正为"孤独谱系"）。适用于无法注入术语表的免费翻译接口。</small>
             </div>
           </div>
         </div>
@@ -213,13 +234,13 @@
     <!-- Footer -->
     <footer class="footer">
       <div class="footer-actions">
-        <button type="button" id="resetSettings" class="secondary-btn">Reset to Defaults</button>
+        <button type="button" id="resetSettings" class="secondary-btn">恢复默认设置</button>
         <div class="primary-actions">
-          <button type="button" id="saveSettings" class="primary-btn">Save Settings</button>
+          <button type="button" id="saveSettings" class="primary-btn">保存设置</button>
         </div>
       </div>
       <div class="footer-info">
-        <p>Open Translate v1.0.7 - A powerful web translation extension</p>
+        <p>ND Translate v1.0.0 - 内置神经多样性术语表的网页翻译扩展</p>
       </div>
     </footer>
 
