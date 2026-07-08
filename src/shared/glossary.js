@@ -6,7 +6,7 @@ const BUILTIN_GLOSSARY = {
   // 核心术语
   neurodiversity: { zh: '神经多样性', incorrect: ['脑力多元'], category: '核心术语' },
   neurodivergent: { zh: '神经殊异', incorrect: ['神经发散'], note: '形容词/描述状态时用"神经殊异"；指人时用"神经殊异者"；群体用"神经殊异群体"', category: '核心术语' },
-  neurodivergence: { zh: '神经殊异性', incorrect: ['神经发散性'], category: '核心术语' },
+  neurodivergence: { zh: '神经殊异性', incorrect: ['神经发散性', '神经分歧'], category: '核心术语' },
   neurotypical: { zh: '神经典型', incorrect: ['神经正常'], category: '核心术语' },
   neurodiverse: { zh: '神经多元', incorrect: ['神经多样性'], category: '核心术语' },
   'neurodiversity paradigm': { zh: '神经多样性范式', category: '核心术语' },

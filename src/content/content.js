@@ -10,6 +10,7 @@ let translationService = null;
 let translationCorrector = null;
 let freeTranslator = null;
 let inputFieldListener = null;
+let accessibilityFeatures = null;
 
 // State management
 let isTranslating = false;
@@ -35,6 +36,12 @@ async function initialize() {
     freeTranslator = new FreeTranslator();
     if (typeof BUILTIN_GLOSSARY !== 'undefined') {
       translationCorrector = new TranslationCorrector(BUILTIN_GLOSSARY);
+    }
+    if (typeof AccessibilityFeatures !== 'undefined') {
+      accessibilityFeatures = new AccessibilityFeatures();
+      console.log('[ND Translate] AccessibilityFeatures instance created');
+    } else {
+      console.warn('[ND Translate] AccessibilityFeatures class not defined');
     }
     await loadUserPreferences();
     setupMessageListeners();
@@ -71,11 +78,41 @@ async function loadUserPreferences() {
       'preserveFormatting',
       'smartContentEnabled',
       'inputFieldListenerEnabled',
-      'useFreeMode'
+      'useFreeMode',
+      'dyslexicFont',
+      'chineseFont',
+      'bionicReading',
+      'sentenceBreak',
+      'lineSpacing',
+      'wordSpacing',
+      'letterSpacing',
+      'fontSize',
+      'accessibilityEnabled'
     ], (result) => {
       // 保持与初始默认值一致：如果用户没有设置，使用 REPLACE 模式
       translationMode = result.translationMode || TRANSLATION_MODES.REPLACE;
       useFreeMode = result.useFreeMode !== undefined ? result.useFreeMode : true;
+
+      // Apply accessibility features (master toggle off = explicit disable only)
+      if (accessibilityFeatures) {
+        console.log('[ND Translate] accessibilityEnabled=%s, sentenceBreak=%s',
+          result.accessibilityEnabled, result.sentenceBreak);
+        if (result.accessibilityEnabled !== false) {
+          accessibilityFeatures.init({
+            dyslexicFont: result.dyslexicFont,
+            chineseFont: result.chineseFont,
+            bionicReading: result.bionicReading,
+            sentenceBreak: result.sentenceBreak,
+            lineSpacing: result.lineSpacing,
+            wordSpacing: result.wordSpacing,
+            letterSpacing: result.letterSpacing,
+            fontSize: result.fontSize
+          });
+        } else {
+          accessibilityFeatures.cleanup();
+        }
+      }
+
       translationRenderer.setMode(translationMode);
 
       // 如果是Replace模式，确保清理任何可能的双语模式残留
@@ -222,6 +259,36 @@ async function handleMessage(message, sender, sendResponse) {
         sendResponse({ success: true });
         break;
 
+      case 'updateAccessibility':
+        if (accessibilityFeatures) {
+          if (message.key === 'enabled') {
+            if (message.value) {
+              // Re-read full config from storage and apply
+              chrome.storage.sync.get([
+                'dyslexicFont', 'chineseFont', 'bionicReading', 'sentenceBreak',
+                'lineSpacing', 'wordSpacing', 'letterSpacing', 'fontSize'
+              ], (result) => {
+                accessibilityFeatures.init({
+                  dyslexicFont: result.dyslexicFont,
+                  chineseFont: result.chineseFont,
+                  bionicReading: result.bionicReading,
+                  sentenceBreak: result.sentenceBreak,
+                  lineSpacing: result.lineSpacing,
+                  wordSpacing: result.wordSpacing,
+                  letterSpacing: result.letterSpacing,
+                  fontSize: result.fontSize
+                });
+              });
+            } else {
+              accessibilityFeatures.cleanup();
+            }
+          } else {
+            accessibilityFeatures.update(message.key, message.value);
+          }
+        }
+        sendResponse({ success: true });
+        break;
+
       default:
         sendResponse({ success: false, error: 'Unknown action' });
     }
@@ -321,6 +388,18 @@ async function handleTranslateRequest(options = {}) {
         await loadUserPreferences();
       }
 
+      // Temporarily restore Bionic Reading and Sentence Break so the text
+      // extractor sees clean text (Bionic wraps word fragments in <b> tags
+      // which breaks text extraction and produces garbled translations).
+      const hadBionic = accessibilityFeatures && accessibilityFeatures.state.bionicReading;
+      const hadSentenceBreak = accessibilityFeatures && accessibilityFeatures.state.sentenceBreak;
+      if (accessibilityFeatures) {
+        if (hadBionic) accessibilityFeatures.restoreBionicReading();
+        if (hadSentenceBreak) accessibilityFeatures.restoreSentenceBreaks();
+      }
+      // Clear cache since DOM has changed
+      if (textExtractor) textExtractor.clearCache();
+
       // Use paragraph-based extraction for better concurrent translation
       // Pass translation mode to ensure proper text extraction
       let paragraphGroups = textExtractor.extractParagraphGroups(document.body, {
@@ -368,6 +447,13 @@ async function handleTranslateRequest(options = {}) {
         });
 
         isTranslated = true;
+
+        // Re-apply accessibility features in click-to-translate mode
+        if (accessibilityFeatures) {
+          if (hadBionic) accessibilityFeatures.applyBionicReading();
+          if (hadSentenceBreak) accessibilityFeatures.applySentenceBreaks();
+        }
+
         notifyStatusChange('translated', {
           totalTranslated: 0,
           mode: translationMode
@@ -449,6 +535,12 @@ async function handleTranslateRequest(options = {}) {
         );
         // 检查是否有失败的元素需要重试
         await handleTranslationRetries(targetLanguage, sourceLanguage);
+      }
+
+      // Re-apply accessibility features temporarily restored before extraction
+      if (accessibilityFeatures) {
+        if (hadBionic) accessibilityFeatures.applyBionicReading();
+        if (hadSentenceBreak) accessibilityFeatures.applySentenceBreaks();
       }
 
     }
@@ -798,6 +890,11 @@ function cleanup() {
     clickableParagraphGroups = [];
   }
 
+  // Clean up accessibility features
+  if (accessibilityFeatures) {
+    accessibilityFeatures.cleanup();
+  }
+
   if (isTranslated) {
     translationRenderer.restoreOriginalText();
   }
@@ -907,7 +1004,17 @@ function setupDynamicTranslation() {
 async function handleViewportChange() {
   if (!textExtractor || !isTranslated || isTranslating) return;
 
+  const hadBionic = accessibilityFeatures && accessibilityFeatures.state.bionicReading;
+  const hadSentenceBreak = accessibilityFeatures && accessibilityFeatures.state.sentenceBreak;
+
   try {
+    // Temporarily restore Bionic Reading so text extraction sees clean text
+    if (accessibilityFeatures) {
+      if (hadBionic) accessibilityFeatures.restoreBionicReading();
+      if (hadSentenceBreak) accessibilityFeatures.restoreSentenceBreaks();
+    }
+    textExtractor.clearCache();
+
     // 查找视口内未翻译的元素
     const untranslatedGroups = textExtractor.extractParagraphGroups(document.body, {
       translationMode: translationMode,
@@ -933,6 +1040,12 @@ async function handleViewportChange() {
     }
   } catch (error) {
     console.warn('Dynamic translation failed:', error);
+  } finally {
+    // Re-apply accessibility features regardless of success/failure/early-return
+    if (accessibilityFeatures) {
+      if (hadBionic) accessibilityFeatures.applyBionicReading();
+      if (hadSentenceBreak) accessibilityFeatures.applySentenceBreaks();
+    }
   }
 }
 

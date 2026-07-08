@@ -74,6 +74,7 @@ function initializeElements() {
   elements.restoreBtn = document.getElementById('restoreBtn');
   elements.autoTranslate = document.getElementById('autoTranslate');
   elements.inputFieldListener = document.getElementById('inputFieldListener');
+  elements.accessibilityEnabled = document.getElementById('accessibilityEnabled');
 
   elements.optionsBtn = document.getElementById('optionsBtn');
   elements.freeLabel = document.getElementById('freeLabel');
@@ -112,6 +113,7 @@ async function loadPreferences() {
       'autoTranslate',
       'inputFieldListenerEnabled',
       'useFreeMode',
+      'accessibilityEnabled',
       'translationConfig'
     ], (result) => {
       // Set engine toggle state
@@ -125,6 +127,9 @@ async function loadPreferences() {
       elements.freeLabel.classList.toggle('active', useFreeMode);
       elements.llmLabel.classList.toggle('active', !useFreeMode);
       elements.llmLabel.classList.toggle('disabled', !hasApiKey);
+
+      // Set reading aid master toggle
+      elements.accessibilityEnabled.checked = result.accessibilityEnabled === true;
 
       // Set language selections
       elements.sourceLanguage.value = result.sourceLanguage || 'auto';
@@ -197,6 +202,13 @@ function setupEventListeners() {
       elements.useLLM.checked = true;
       elements.useLLM.dispatchEvent(new Event('change'));
     }
+  });
+
+  // Reading aid master toggle
+  elements.accessibilityEnabled.addEventListener('change', () => {
+    const enabled = elements.accessibilityEnabled.checked;
+    chrome.storage.sync.set({ accessibilityEnabled: enabled });
+    sendAccessibilityUpdate('enabled', enabled);
   });
 }
 
@@ -606,6 +618,20 @@ function showLoading(show) {
  */
 function showError(message) {
   // Simple error display - could be enhanced with toast notifications
+}
+
+/**
+ * Send accessibility update to content script
+ */
+function sendAccessibilityUpdate(key, value) {
+  if (!currentTab || !currentTab.id) return;
+  chrome.tabs.sendMessage(currentTab.id, {
+    action: 'updateAccessibility',
+    key: key,
+    value: value
+  }).catch(() => {
+    // Content script may not be ready; settings are saved to storage regardless
+  });
 }
 
 // Initialize popup when DOM is loaded

@@ -110,6 +110,22 @@ function initializeElements() {
   elements.enableGlossary = document.getElementById('enableGlossary');
   elements.enableCorrection = document.getElementById('enableCorrection');
 
+  // Accessibility Settings
+  elements.dyslexicFont = document.getElementById('dyslexicFont');
+  elements.chineseFont = document.getElementById('chineseFont');
+  elements.bionicReading = document.getElementById('bionicReading');
+  elements.sentenceBreak = document.getElementById('sentenceBreak');
+  elements.lineSpacing = document.getElementById('lineSpacing');
+  elements.lineSpacingValue = document.getElementById('lineSpacingValue');
+  elements.wordSpacing = document.getElementById('wordSpacing');
+  elements.wordSpacingValue = document.getElementById('wordSpacingValue');
+  elements.fontSize = document.getElementById('fontSize');
+  elements.fontSizeValue = document.getElementById('fontSizeValue');
+  elements.letterSpacing = document.getElementById('letterSpacing');
+  elements.letterSpacingValue = document.getElementById('letterSpacingValue');
+  elements.resetSpacing = document.getElementById('resetSpacing');
+  elements.previewBox = document.getElementById('previewBox');
+
   // Actions
   elements.saveSettings = document.getElementById('saveSettings');
   elements.resetSettings = document.getElementById('resetSettings');
@@ -190,8 +206,25 @@ async function loadSettings() {
       elements.enableCorrection.checked = config.enableCorrection !== false; // Default to true
     }
 
+    // Accessibility Settings
+    elements.dyslexicFont.checked = config.dyslexicFont === true;
+    elements.chineseFont.checked = config.chineseFont === true;
+    elements.bionicReading.checked = config.bionicReading === true;
+    elements.sentenceBreak.checked = config.sentenceBreak === true;
+    elements.lineSpacing.value = config.lineSpacing || 1.5;
+    elements.lineSpacingValue.textContent = config.lineSpacing || 1.5;
+    elements.wordSpacing.value = config.wordSpacing || 0.08;
+    elements.wordSpacingValue.textContent = config.wordSpacing || 0.08;
+    elements.letterSpacing.value = config.letterSpacing || 0.02;
+    elements.letterSpacingValue.textContent = config.letterSpacing || 0.02;
+    elements.fontSize.value = config.fontSize || 1.0;
+    elements.fontSizeValue.textContent = (config.fontSize || 1.0).toFixed(2) + ' (' + Math.round((config.fontSize || 1.0) * 100) + '%)';
+
     // Update model selection UI
     updateModelSelectionUI();
+
+    // Apply current settings to preview
+    updatePreview();
   } catch (error) {
     errorHandler.handle(error, 'options-load-settings');
     showStatusMessage(ERROR_MESSAGES.TRANSLATION_FAILED, 'error');
@@ -225,7 +258,54 @@ function setupEventListeners() {
   
   // Reset settings
   elements.resetSettings.addEventListener('click', resetSettings);
-  
+
+  // Accessibility sliders
+  elements.lineSpacing.addEventListener('input', (e) => {
+    elements.lineSpacingValue.textContent = e.target.value;
+  });
+  elements.wordSpacing.addEventListener('input', (e) => {
+    elements.wordSpacingValue.textContent = e.target.value;
+  });
+  elements.letterSpacing.addEventListener('input', (e) => {
+    elements.letterSpacingValue.textContent = e.target.value;
+  });
+
+  // Reset spacing to defaults
+  elements.resetSpacing.addEventListener('click', () => {
+    elements.lineSpacing.value = 1.5;
+    elements.lineSpacingValue.textContent = '1.5';
+    elements.wordSpacing.value = 0.08;
+    elements.wordSpacingValue.textContent = '0.08';
+    elements.fontSize.value = 1.0;
+    elements.fontSizeValue.textContent = '1.00 (100%)';
+    elements.letterSpacing.value = 0.02;
+    elements.letterSpacingValue.textContent = '0.02';
+    updatePreview();
+  });
+
+  // Preview live update
+  elements.dyslexicFont.addEventListener('change', updatePreview);
+  elements.chineseFont.addEventListener('change', updatePreview);
+  elements.bionicReading.addEventListener('change', updatePreview);
+  elements.sentenceBreak.addEventListener('change', updatePreview);
+  elements.lineSpacing.addEventListener('input', () => {
+    elements.lineSpacingValue.textContent = elements.lineSpacing.value;
+    updatePreview();
+  });
+  elements.wordSpacing.addEventListener('input', () => {
+    elements.wordSpacingValue.textContent = elements.wordSpacing.value;
+    updatePreview();
+  });
+  elements.letterSpacing.addEventListener('input', () => {
+    elements.letterSpacingValue.textContent = elements.letterSpacing.value;
+    updatePreview();
+  });
+  elements.fontSize.addEventListener('input', () => {
+    const val = parseFloat(elements.fontSize.value);
+    elements.fontSizeValue.textContent = val.toFixed(2) + ' (' + Math.round(val * 100) + '%)';
+    updatePreview();
+  });
+
   // Status message close
   const statusClose = elements.statusMessage.querySelector('.status-close');
   statusClose.addEventListener('click', hideStatusMessage);
@@ -574,7 +654,16 @@ async function saveSettings() {
       enableSmartBatching: elements.enableSmartBatching ? elements.enableSmartBatching.checked : true,
       // Glossary Settings
       enableGlossary: elements.enableGlossary ? elements.enableGlossary.checked : true,
-      enableCorrection: elements.enableCorrection ? elements.enableCorrection.checked : true
+      enableCorrection: elements.enableCorrection ? elements.enableCorrection.checked : true,
+      // Accessibility Settings
+      dyslexicFont: elements.dyslexicFont.checked,
+      chineseFont: elements.chineseFont.checked,
+      bionicReading: elements.bionicReading.checked,
+      sentenceBreak: elements.sentenceBreak.checked,
+      lineSpacing: parseFloat(elements.lineSpacing.value) || 1.5,
+      wordSpacing: parseFloat(elements.wordSpacing.value) || 0.08,
+      letterSpacing: parseFloat(elements.letterSpacing.value) || 0.02,
+      fontSize: parseFloat(elements.fontSize.value) || 1.0
     };
 
     await configManager.saveConfig(settings);
@@ -625,6 +714,211 @@ function hideStatusMessage() {
 }
 
 
+
+/**
+ * Update the preview box with current accessibility settings.
+ */
+function updatePreview() {
+  const box = elements.previewBox;
+  if (!box) return;
+
+  const lineSpacing = parseFloat(elements.lineSpacing.value) || 1.5;
+  const wordSpacing = parseFloat(elements.wordSpacing.value) || 0.08;
+  const letterSpacing = parseFloat(elements.letterSpacing.value) || 0.02;
+  const fontSize = parseFloat(elements.fontSize.value) || 1.0;
+  const useDyslexic = elements.dyslexicFont.checked;
+  const useBionic = elements.bionicReading.checked;
+  const useChinese = elements.chineseFont.checked;
+
+  box.style.lineHeight = lineSpacing;
+  box.style.wordSpacing = wordSpacing + 'em';
+  box.style.letterSpacing = letterSpacing + 'em';
+  box.style.fontSize = fontSize !== 1.0 ? (fontSize * 100).toFixed(0) + '%' : '';
+
+  // Manage CDN font links
+  const dyslexicLinkId = 'ot-preview-dyslexic-font-link';
+  const chineseLinkId = 'ot-preview-chinese-font-link';
+  if (useDyslexic) {
+    if (!document.getElementById(dyslexicLinkId)) {
+      const link = document.createElement('link');
+      link.id = dyslexicLinkId;
+      link.rel = 'stylesheet';
+      link.href = 'https://cdn.jsdelivr.net/npm/open-dyslexic-cdn@0.0.1/dist/OpenDyslexic-Regular.css';
+      document.head.appendChild(link);
+    }
+  } else {
+    const link = document.getElementById(dyslexicLinkId);
+    if (link) link.remove();
+  }
+  if (useChinese) {
+    if (!document.getElementById(chineseLinkId)) {
+      const link = document.createElement('link');
+      link.id = chineseLinkId;
+      link.rel = 'stylesheet';
+      link.href = 'https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-webfont@1.7.0/lxgwwenkaigbscreen.css';
+      document.head.appendChild(link);
+    }
+  } else {
+    const link = document.getElementById(chineseLinkId);
+    if (link) link.remove();
+  }
+
+  // Build font stack: Latin → OpenDyslexic, CJK → LXGW WenKai (unicode-range), fallback → system
+  if (useDyslexic && useChinese) {
+    box.style.fontFamily = "'OpenDyslexic', 'LXGW WenKai Screen', 'LXGW WenKai', sans-serif";
+  } else if (useDyslexic) {
+    box.style.fontFamily = "'OpenDyslexic', sans-serif";
+  } else if (useChinese) {
+    box.style.fontFamily = "'LXGW WenKai Screen', 'LXGW WenKai', system-ui, -apple-system, sans-serif";
+  } else {
+    box.style.fontFamily = '';
+  }
+
+  // Sentence break must apply before bionic (bionic fragments text nodes)
+  restoreBionicPreview();
+  restoreSentenceBreakPreview();
+  if (elements.sentenceBreak.checked) {
+    applySentenceBreakPreview();
+  }
+  if (useBionic) {
+    applyBionicPreview();
+  }
+}
+
+function applyBionicPreview() {
+  const box = elements.previewBox;
+  if (!box) return;
+  const walker = document.createTreeWalker(box, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) { nodes.push(walker.currentNode); }
+  for (const node of nodes) {
+    const text = node.textContent;
+    const frag = document.createDocumentFragment();
+    let lastIndex = 0;
+    const re = /([a-zA-Z]+)/g;
+    let match;
+    while ((match = re.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        frag.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+      }
+      const word = match[0];
+      if (word.length <= 3) {
+        frag.appendChild(document.createTextNode(word));
+      } else {
+        const boldLen = Math.ceil(word.length * 0.5);
+        const b = document.createElement('b');
+        b.textContent = word.slice(0, boldLen);
+        b.setAttribute('data-ot-preview-bionic', '');
+        frag.appendChild(b);
+        frag.appendChild(document.createTextNode(word.slice(boldLen)));
+      }
+      lastIndex = match.index + word.length;
+    }
+    if (lastIndex < text.length) {
+      frag.appendChild(document.createTextNode(text.slice(lastIndex)));
+    }
+    const span = document.createElement('span');
+    span.setAttribute('data-ot-preview-bionic', '');
+    span.appendChild(frag);
+    node.parentNode.replaceChild(span, node);
+  }
+}
+
+function restoreBionicPreview() {
+  const markers = document.querySelectorAll('[data-ot-preview-bionic]');
+  for (const el of markers) {
+    const parent = el.parentNode;
+    if (!parent) continue;
+    parent.replaceChild(document.createTextNode(el.textContent), el);
+  }
+  try { elements.previewBox.normalize(); } catch (e) { /* skip */ }
+}
+
+function splitSentences(text) {
+  const result = [];
+  let last = 0;
+  const re = /[.!?。！？]/g;
+  let m;
+
+  while ((m = re.exec(text)) !== null) {
+    const punct = m[0];
+    const after = text.slice(m.index + 1);
+
+    let isEnd = false;
+
+    if (/[。！？]/.test(punct)) {
+      isEnd = true;
+    } else if (/[!?]/.test(punct)) {
+      isEnd = true;
+    } else if (punct === '.') {
+      // Citation pattern: period right after ) like (2022). → not a sentence end
+      if (m.index > 0 && text[m.index - 1] === ')') {
+        isEnd = false;
+      } else {
+        const trimmed = after.trimStart();
+        if (trimmed.length === 0) {
+          isEnd = true;
+        } else {
+          const next = trimmed[0];
+          if (/[A-Z一-鿿㐀-䶿぀-ゟ゠-ヿ가-힯]/.test(next)) {
+            isEnd = true;
+          }
+        }
+      }
+    }
+
+    // Don't split if the segment is empty (consecutive punctuation like ?. or !.)
+    if (isEnd && m.index === last) {
+      isEnd = false;
+    }
+
+    if (isEnd) {
+      result.push(text.slice(last, m.index + 1));
+      last = m.index + 1;
+    }
+  }
+
+  if (last < text.length) {
+    result.push(text.slice(last));
+  }
+
+  return result;
+}
+
+function applySentenceBreakPreview() {
+  const box = elements.previewBox;
+  if (!box) return;
+  const walker = document.createTreeWalker(box, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) { nodes.push(walker.currentNode); }
+  for (const node of nodes) {
+    const text = node.textContent;
+    if (!/[.!?。！？]/.test(text)) continue;
+    const sentences = splitSentences(text);
+    const filtered = sentences.filter(s => s.trim());
+    if (filtered.length <= 1) continue;
+    const wrapper = document.createElement('span');
+    wrapper.setAttribute('data-ot-preview-sentence-break', '');
+    wrapper.style.display = 'contents';
+    for (const sentence of filtered) {
+      const span = document.createElement('span');
+      span.setAttribute('style', 'display: block !important;');
+      span.textContent = sentence;
+      wrapper.appendChild(span);
+    }
+    node.parentNode.replaceChild(wrapper, node);
+  }
+}
+
+function restoreSentenceBreakPreview() {
+  const wrappers = document.querySelectorAll('span[data-ot-preview-sentence-break]');
+  for (const wrapper of wrappers) {
+    const parent = wrapper.parentNode;
+    if (!parent) continue;
+    parent.replaceChild(document.createTextNode(wrapper.textContent), wrapper);
+  }
+  try { elements.previewBox.normalize(); } catch (e) { /* skip */ }
+}
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', initialize);

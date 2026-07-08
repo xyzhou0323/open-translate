@@ -94,16 +94,20 @@
         <span class="checkbox-label">输入框翻译</span>
       </label>
 
+      <label class="checkbox-option" title="字体、Bionic Reading、间距等详细设置请在高级设置中配置">
+        <input type="checkbox" id="accessibilityEnabled">
+        <span class="checkbox-label">启用阅读辅助</span>
+      </label>
     </div>
 
     <!-- Translation Engine Toggle -->
     <div class="engine-section">
-      <span id="freeLabel" class="engine-option active">免费</span>
+      <span id="freeLabel" class="engine-option active" title="免费翻译由 Google 提供，效果可能不如 LLM API 精准">免费</span>
       <label class="toggle-switch">
         <input type="checkbox" id="useLLM">
         <span class="toggle-slider"></span>
       </label>
-      <span id="llmLabel" class="engine-option" data-tooltip="需先配置 API 密钥">LLM</span>
+      <span id="llmLabel" class="engine-option" title="需先在高级设置中配置 API 密钥">LLM</span>
     </div>
 
     <!-- Footer -->

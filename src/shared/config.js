@@ -31,7 +31,16 @@ class ConfigManager {
       enableSmartBatching: false,
       enableGlossary: true,
       enableCorrection: true,
-      useFreeMode: true
+      useFreeMode: true,
+      accessibilityEnabled: false,
+      dyslexicFont: false,
+      chineseFont: false,
+      bionicReading: false,
+      sentenceBreak: false,
+      lineSpacing: 1.5,
+      wordSpacing: 0.08,
+      letterSpacing: 0.02,
+      fontSize: 1.0
     };
 
     this.storageKeys = [
@@ -52,7 +61,16 @@ class ConfigManager {
       'enableGlossary',
       'enableCorrection',
       'useFreeMode',
-      'availableModels'
+      'availableModels',
+      'dyslexicFont',
+      'chineseFont',
+      'accessibilityEnabled',
+      'bionicReading',
+      'sentenceBreak',
+      'lineSpacing',
+      'wordSpacing',
+      'letterSpacing',
+      'fontSize'
     ];
   }
 
@@ -194,6 +212,20 @@ class ConfigManager {
     // Validate smart batching configuration
     if (validated.enableSmartBatching !== undefined) {
       validated.enableSmartBatching = Boolean(validated.enableSmartBatching);
+    }
+
+    // Validate accessibility settings
+    if (validated.lineSpacing !== undefined) {
+      validated.lineSpacing = Math.max(1, Math.min(5, parseFloat(validated.lineSpacing) || 1.5));
+    }
+    if (validated.wordSpacing !== undefined) {
+      validated.wordSpacing = Math.max(0, Math.min(2, parseFloat(validated.wordSpacing) || 0.08));
+    }
+    if (validated.letterSpacing !== undefined) {
+      validated.letterSpacing = Math.max(-0.05, Math.min(0.5, parseFloat(validated.letterSpacing) || 0.02));
+    }
+    if (validated.fontSize !== undefined) {
+      validated.fontSize = Math.max(0.8, Math.min(2.0, parseFloat(validated.fontSize) || 1.0));
     }
 
     return validated;

@@ -94,7 +94,78 @@
         </div>
       </section>
 
+      <!-- Accessibility / Reading Aid Section -->
+      <section class="settings-section">
+        <h2 class="section-title">阅读辅助</h2>
+        <div class="section-content">
+          <div class="form-group">
+            <label class="form-label">
+              <input type="checkbox" id="dyslexicFont" class="form-checkbox">
+              OpenDyslexic 字体
+            </label>
+            <small class="form-help">将页面英文字体替换为专为阅读障碍设计的 OpenDyslexic 字体，字母底部加重减少翻转错觉。</small>
+          </div>
 
+          <div class="form-group">
+            <label class="form-label">
+              <input type="checkbox" id="chineseFont" class="form-checkbox">
+              霞鹜文楷中文字体
+            </label>
+            <small class="form-help">将页面中文字体替换为霞鹜文楷（LXGW WenKai），字形清晰易辨识，适合阅读障碍人群。字体通过 CDN 加载，需要网络连接。</small>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">
+              <input type="checkbox" id="bionicReading" class="form-checkbox">
+              Bionic Reading 引导阅读
+            </label>
+            <small class="form-help">加粗每个英文单词的前半部分字符，通过视觉锚点引导眼球快速移动。</small>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">
+              <input type="checkbox" id="sentenceBreak" class="form-checkbox">
+              每句换行
+            </label>
+            <small class="form-help">将页面正文按句号、问号、感叹号等标点拆分为每句一行，减少长段落带来的阅读压力。</small>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="fontSize" class="form-label">字号</label>
+              <input type="range" id="fontSize" class="form-range" min="0.8" max="2" step="0.05" value="1">
+              <span id="fontSizeValue" class="range-value">1.0 (100%)</span>
+            </div>
+
+            <div class="form-group">
+              <label for="lineSpacing" class="form-label">行间距</label>
+              <input type="range" id="lineSpacing" class="form-range" min="1" max="5" step="0.1" value="1.5">
+              <span id="lineSpacingValue" class="range-value">1.5</span>
+            </div>
+
+            <div class="form-group">
+              <label for="wordSpacing" class="form-label">单词间距</label>
+              <input type="range" id="wordSpacing" class="form-range" min="0" max="2" step="0.05" value="0.08">
+              <span id="wordSpacingValue" class="range-value">0.08</span>
+            </div>
+
+            <div class="form-group">
+              <label for="letterSpacing" class="form-label">字间距</label>
+              <input type="range" id="letterSpacing" class="form-range" min="-0.05" max="0.5" step="0.01" value="0.02">
+              <span id="letterSpacingValue" class="range-value">0.02</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <button type="button" id="resetSpacing" class="secondary-btn" style="width:auto;">恢复默认间距</button>
+          </div>
+
+          <div id="previewBox" class="preview-box">
+            <p>神经多样性（Neurodiversity）指人类物种内部神经认知功能的无限变化——不同大脑和心智在思维、感知、情绪、学习、社交等方面的自然差异。There is no one outside the human neurodiverse spectrum—including neurotypicals.</p>
+            <p>神经殊异者通常指那些难以按照社会神经规范运作、其需求在标准系统（如主流学校教室）中较少得到满足、并因此遭受歧视的人。This is a mixed 中英文 preview paragraph for testing.</p>
+          </div>
+        </div>
+      </section>
 
       <!-- Advanced Settings Section -->
       <section class="settings-section">
@@ -229,6 +300,7 @@
           </div>
         </div>
       </section>
+
     </main>
 
     <!-- Footer -->

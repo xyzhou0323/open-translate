@@ -3,6 +3,11 @@
  * 使用高优先级选择器确保样式不被网站样式覆盖
  */
 
+/* Bionic Reading - bold fixation anchors */
+.ot-bionic-bold {
+  font-weight: 700 !important;
+}
+
 /* 重置和基础样式 - 使用高优先级 */
 .ot-bilingual-container,
 .ot-bilingual-container *,
