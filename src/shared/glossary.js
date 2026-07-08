@@ -4,11 +4,11 @@
  */
 const BUILTIN_GLOSSARY = {
   // 核心术语
-  neurodiversity: { zh: '神经多样性', incorrect: ['脑力多元'], category: '核心术语' },
-  neurodivergent: { zh: '神经殊异', incorrect: ['神经发散'], note: '形容词/描述状态时用"神经殊异"；指人时用"神经殊异者"；群体用"神经殊异群体"', category: '核心术语' },
-  neurodivergence: { zh: '神经殊异性', incorrect: ['神经发散性', '神经分歧'], category: '核心术语' },
+  neurodiversity: { zh: '神经多样性', incorrect: ['脑力多元','神经多元', '神经发散', '神经分歧'], category: '核心术语' },
+  neurodivergent: { zh: '神经殊异', incorrect: ['脑力多元','神经多元', '神经发散', '神经分歧', '神经多样性'], note: '形容词/描述状态时用"神经殊异"；指人时用"神经殊异者"；群体用"神经殊异群体"', category: '核心术语' },
+  neurodivergence: { zh: '神经殊异性', incorrect: ['神经发散性', '神经分歧', '神经发散', '神经多样性'], category: '核心术语' },
   neurotypical: { zh: '神经典型', incorrect: ['神经正常'], category: '核心术语' },
-  neurodiverse: { zh: '神经多元', incorrect: ['神经多样性'], category: '核心术语' },
+  neurodiverse: { zh: '神经多元', incorrect: ['神经多样性','神经多样', '神经发散', '神经分歧'], category: '核心术语' },
   'neurodiversity paradigm': { zh: '神经多样性范式', category: '核心术语' },
   'normality paradigm': { zh: '常态范式', category: '核心术语' },
   'normalcy paradigm': { zh: '常态范式', category: '核心术语' },
@@ -26,7 +26,7 @@ const BUILTIN_GLOSSARY = {
   'autism spectrum disorder': { zh: '孤独谱系障碍', incorrect: ['自闭症谱系障碍', '孤独症谱系障碍'], abbr: 'ASD', category: '诊断与现象' },
   'autism spectrum': { zh: '孤独谱系', incorrect: ['自闭症谱系', '孤独症谱系'], category: '诊断与现象' },
   'autistic person': { zh: '孤独谱系者', incorrect: ['自闭症患者', '孤独症患者'], category: '诊断与现象' },
-  'autistic people': { zh: '孤独谱系群体', incorrect: ['自闭症群体', '孤独症群体'], category: '诊断与现象' },
+  'autistic people': { zh: '孤独谱系群体', incorrect: ['自闭症群体', '孤独症群体', '孤独谱系患者', '自闭症患者', '孤独症患者'], category: '诊断与现象' },
   'autistic community': { zh: '孤独谱系社群', incorrect: ['自闭症社群', '孤独症社群'], category: '诊断与现象' },
   'attention deficit / hyperactivity disorder': { zh: '注意缺陷/多动障碍', incorrect: ['多动症'], abbr: 'ADHD', category: '诊断与现象' },
   'attention deficit hyperactivity disorder': { zh: '注意缺陷/多动障碍', incorrect: ['多动症'], abbr: 'ADHD', category: '诊断与现象' },
@@ -82,8 +82,8 @@ const BUILTIN_GLOSSARY = {
   neuroqueering: { zh: '神经酷儿', category: '批判分析' },
   'aspie supremacy': { zh: '阿斯至上主义', category: '批判分析' },
   'neuro-s thatcherism': { zh: '神经撒切尔主义', category: '批判分析' },
-  'neurodiversity-lite': { zh: '庸俗版神经多样性', category: '批判分析' },
-  'nd-lite': { zh: '庸俗版神经多样性', category: '批判分析' },
+  'neurodiversity-lite': { zh: '庸俗版神经多样性', incorrect: ['精简版神经多样性', '神经多样性精简版'], category: '批判分析' },
+  'nd-lite': { zh: '庸俗版神经多样性', incorrect: ['精简版神经多样性', '神经多样性精简版'], category: '批判分析' },
 
   // 研究方法论
   'participatory action research': { zh: '参与式行动研究', abbr: 'PAR', category: '研究方法论' },

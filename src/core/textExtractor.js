@@ -290,6 +290,18 @@ class TextExtractor {
       }
     }
 
+    // 排除导航和菜单区域：翻译会替换 innerHTML，破坏菜单 JS 事件和 CSS 状态
+    if (node.parentElement.closest('nav, menu, [role="navigation"], [role="menu"], [role="menubar"]')) {
+      return false;
+    }
+    const navClassSet = new Set(['nav', 'navbar', 'navigation', 'megamenu', 'mega-menu', 'dropdown-menu', 'submenu', 'topbar', 'site-header', 'main-menu']);
+    let el = node.parentElement;
+    while (el && el !== document.body) {
+      const classes = (el.className || '').toLowerCase().split(/\s+/);
+      if (classes.some(c => navClassSet.has(c))) return false;
+      el = el.parentElement;
+    }
+
     // 使用更宽松的排除检查
     return !this.isStrictlyExcludedElement(node.parentElement, excludeSelectors);
   }
@@ -392,10 +404,25 @@ class TextExtractor {
     // 只排除明确不应翻译的元素
     const strictExcludeElements = [
       'script', 'style', 'noscript', 'iframe', 'object', 'embed',
-      'canvas', 'svg', 'math', 'pre', 'kbd', 'samp', 'var'
+      'canvas', 'svg', 'math', 'pre', 'kbd', 'samp', 'var',
+      'nav', 'menu'
     ];
 
     if (strictExcludeElements.includes(tagName)) {
+      return true;
+    }
+
+    // 排除导航和菜单相关的 ARIA role
+    if (element.getAttribute('role') === 'navigation' ||
+        element.getAttribute('role') === 'menu' ||
+        element.getAttribute('role') === 'menubar') {
+      return true;
+    }
+
+    // 排除常见导航/菜单 class 模式（精确匹配，避免误杀含 "-nav-" 的内容 class）
+    const navClassSet = new Set(['nav', 'navbar', 'navigation', 'megamenu', 'mega-menu', 'dropdown-menu', 'submenu', 'topbar', 'site-header', 'main-menu']);
+    const classes = (element.className || '').toLowerCase().split(/\s+/);
+    if (classes.some(c => navClassSet.has(c))) {
       return true;
     }
 

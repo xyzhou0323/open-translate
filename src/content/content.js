@@ -19,12 +19,17 @@ let isNavigating = false; // 新增：标记是否正在导航
 let currentTextNodes = [];
 let currentTranslations = [];
 let translationMode = TRANSLATION_MODES.REPLACE; // 统一默认为替换模式
+let targetLanguage = 'zh-CN';
+let sourceLanguage = 'auto';
 let clickableParagraphGroups = []; // paragraph groups for click-to-translate mode
 let dynamicTranslationEnabled = true;
 let useFreeMode = true;
+let autoTranslate = false;
 let scrollTimeout = null;
 let retryCheckInterval = null;
 let retryTimeoutId = null;
+let handlingViewport = false;
+let suppressObserver = false;
 
 /**
  * Initialize content script
@@ -49,6 +54,18 @@ async function initialize() {
 
     // 初始化输入框监听器
     await initializeInputFieldListener();
+
+    // Auto-translate if enabled
+    if (autoTranslate) {
+      console.log('[ND Translate] Auto-translating page, mode:', translationMode);
+      handleTranslateRequest({
+        sourceLanguage,
+        targetLanguage,
+        translationMode
+      }).catch(err => {
+        console.warn('[ND Translate] Auto-translate failed:', err.message);
+      });
+    }
   } catch (error) {
 
     // Use errorHandler if available
@@ -87,11 +104,17 @@ async function loadUserPreferences() {
       'wordSpacing',
       'letterSpacing',
       'fontSize',
-      'accessibilityEnabled'
+      'accessibilityEnabled',
+      'autoTranslate',
+      'sourceLanguage',
+      'targetLanguage'
     ], (result) => {
       // 保持与初始默认值一致：如果用户没有设置，使用 REPLACE 模式
       translationMode = result.translationMode || TRANSLATION_MODES.REPLACE;
       useFreeMode = result.useFreeMode !== undefined ? result.useFreeMode : true;
+      autoTranslate = result.autoTranslate === true;
+      sourceLanguage = result.sourceLanguage || 'auto';
+      targetLanguage = result.targetLanguage || 'zh-CN';
 
       // Apply accessibility features (master toggle off = explicit disable only)
       if (accessibilityFeatures) {
@@ -261,6 +284,7 @@ async function handleMessage(message, sender, sendResponse) {
 
       case 'updateAccessibility':
         if (accessibilityFeatures) {
+          suppressObserver = true;
           if (message.key === 'enabled') {
             if (message.value) {
               // Re-read full config from storage and apply
@@ -278,12 +302,15 @@ async function handleMessage(message, sender, sendResponse) {
                   letterSpacing: result.letterSpacing,
                   fontSize: result.fontSize
                 });
+                setTimeout(() => { suppressObserver = false; }, 0);
               });
             } else {
               accessibilityFeatures.cleanup();
+              setTimeout(() => { suppressObserver = false; }, 0);
             }
           } else {
             accessibilityFeatures.update(message.key, message.value);
+            setTimeout(() => { suppressObserver = false; }, 0);
           }
         }
         sendResponse({ success: true });
@@ -435,10 +462,18 @@ async function handleTranslateRequest(options = {}) {
             if (results && results.length > 0) {
               const result = results[0];
               if (result.success) {
+                // Post-processing glossary correction
+                const correctionEnabled = useFreeMode !== false || translationService.config?.enableCorrection !== false;
+                if (translationCorrector && correctionEnabled && result.originalText && result.translation) {
+                  result.translation = translationCorrector.correct(result.originalText, result.translation);
+                }
+                // Suppress observer during render to prevent flashing
+                suppressObserver = true;
                 translationRenderer.renderSingleResult(result, TRANSLATION_MODES.REPLACE);
                 container.classList.add('ot-click-translated');
                 currentTextNodes.push(result);
                 currentTranslations.push(result.translation);
+                setTimeout(() => { suppressObserver = false; }, 0);
               }
             }
           } catch (e) {
@@ -448,7 +483,8 @@ async function handleTranslateRequest(options = {}) {
 
         isTranslated = true;
 
-        // Re-apply accessibility features in click-to-translate mode
+        // Re-apply accessibility features in click-to-translate mode.
+        // Observer is already disconnected, so these DOM changes won't trigger it.
         if (accessibilityFeatures) {
           if (hadBionic) accessibilityFeatures.applyBionicReading();
           if (hadSentenceBreak) accessibilityFeatures.applySentenceBreaks();
@@ -537,7 +573,8 @@ async function handleTranslateRequest(options = {}) {
         await handleTranslationRetries(targetLanguage, sourceLanguage);
       }
 
-      // Re-apply accessibility features temporarily restored before extraction
+      // Re-apply accessibility features temporarily restored before extraction.
+      // Observer is already disconnected, so these DOM changes won't trigger it.
       if (accessibilityFeatures) {
         if (hadBionic) accessibilityFeatures.applyBionicReading();
         if (hadSentenceBreak) accessibilityFeatures.applySentenceBreaks();
@@ -605,6 +642,7 @@ async function handleTranslateRequest(options = {}) {
  * Handle restore original text request
  */
 async function handleRestoreRequest() {
+  suppressObserver = true;
   try {
     // 停止重试监控
     stopRetryMonitoring();
@@ -630,6 +668,11 @@ async function handleRestoreRequest() {
           if (results && results.length > 0) {
             const result = results[0];
             if (result.success) {
+              // Post-processing glossary correction
+              const correctionEnabled = useFreeMode !== false || translationService.config?.enableCorrection !== false;
+              if (translationCorrector && correctionEnabled && result.originalText && result.translation) {
+                result.translation = translationCorrector.correct(result.originalText, result.translation);
+              }
               translationRenderer.renderSingleResult(result, TRANSLATION_MODES.REPLACE);
               container.classList.add('ot-click-translated');
               currentTextNodes.push(result);
@@ -646,6 +689,7 @@ async function handleRestoreRequest() {
       currentTranslations = [];
 
       notifyStatusChange('restored');
+      suppressObserver = false;
       return;
     }
 
@@ -662,6 +706,8 @@ async function handleRestoreRequest() {
     notifyStatusChange('restored');
   } catch (error) {
     throw error;
+  } finally {
+    suppressObserver = false;
   }
 }
 
@@ -669,6 +715,7 @@ async function handleRestoreRequest() {
  * Handle toggle bilingual view request (show original only vs show both)
  */
 async function handleToggleBilingualView() {
+  suppressObserver = true;
   try {
     if (translationMode !== 'paragraph-bilingual') {
       throw new Error('Toggle view only available in bilingual mode');
@@ -690,6 +737,8 @@ async function handleToggleBilingualView() {
     }
   } catch (error) {
     throw error;
+  } finally {
+    suppressObserver = false;
   }
 }
 
@@ -863,14 +912,14 @@ function notifyStatusChange(status, data = null) {
  */
 function setupContentObserver() {
   const observer = translationRenderer.observeContentChanges(() => {
-    // 避免在翻译过程中触发重新翻译
-    if (isTranslating) {
+    // 避免在翻译过程中触发重新翻译，或辅助功能正在操作 DOM
+    if (isTranslating || suppressObserver) {
       return;
     }
 
     clearTimeout(window.otContentChangeTimeout);
     window.otContentChangeTimeout = setTimeout(() => {
-      if (isTranslated && !isTranslating && dynamicTranslationEnabled) {
+      if (isTranslated && !isTranslating && !suppressObserver && dynamicTranslationEnabled) {
         // 使用动态翻译而不是完全重新翻译
         handleViewportChange().catch(() => {});
       }
@@ -979,7 +1028,7 @@ function setupDynamicTranslation() {
   // 滚动监听 - 当用户滚动时检查新进入视口的元素
   let scrollTimeout = null;
   window.addEventListener('scroll', () => {
-    if (!isTranslated || isTranslating) return;
+    if (!isTranslated || isTranslating || suppressObserver) return;
 
     clearTimeout(scrollTimeout);
     scrollTimeout = setTimeout(() => {
@@ -989,7 +1038,7 @@ function setupDynamicTranslation() {
 
   // 窗口大小变化监听
   window.addEventListener('resize', () => {
-    if (!isTranslated || isTranslating) return;
+    if (!isTranslated || isTranslating || suppressObserver) return;
 
     clearTimeout(scrollTimeout);
     scrollTimeout = setTimeout(() => {
@@ -1003,6 +1052,18 @@ function setupDynamicTranslation() {
  */
 async function handleViewportChange() {
   if (!textExtractor || !isTranslated || isTranslating) return;
+  if (handlingViewport) return;
+  // Never auto-translate in click-to-translate mode — the user picks
+  // individual paragraphs to translate manually.
+  if (translationMode === TRANSLATION_MODES.CLICK_TO_TRANSLATE) return;
+  handlingViewport = true;
+
+  // Disconnect observer entirely during viewport translation,
+  // same as handleTranslateRequest. This prevents any DOM changes
+  // (restore/render/re-apply) from queueing observer callbacks.
+  if (contentObserver) {
+    contentObserver.disconnect();
+  }
 
   const hadBionic = accessibilityFeatures && accessibilityFeatures.state.bionicReading;
   const hadSentenceBreak = accessibilityFeatures && accessibilityFeatures.state.sentenceBreak;
@@ -1041,10 +1102,19 @@ async function handleViewportChange() {
   } catch (error) {
     console.warn('Dynamic translation failed:', error);
   } finally {
-    // Re-apply accessibility features regardless of success/failure/early-return
     if (accessibilityFeatures) {
       if (hadBionic) accessibilityFeatures.applyBionicReading();
       if (hadSentenceBreak) accessibilityFeatures.applySentenceBreaks();
+    }
+    handlingViewport = false;
+
+    // Re-connect observer for future dynamic content
+    if (contentObserver) {
+      contentObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true
+      });
     }
   }
 }
@@ -1147,6 +1217,12 @@ async function performIncrementalTranslation(paragraphGroups) {
   try {
     const progressCallback = async (result, completed, total) => {
       if (isNavigating) return;
+
+      // Post-processing glossary correction
+      const correctionEnabled = useFreeMode !== false || translationService.config?.enableCorrection !== false;
+      if (result.success && translationCorrector && correctionEnabled && result.originalText && result.translation) {
+        result.translation = translationCorrector.correct(result.originalText, result.translation);
+      }
 
       translationRenderer.renderSingleResult(result, translationMode);
 

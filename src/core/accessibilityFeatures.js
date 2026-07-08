@@ -218,6 +218,13 @@ class AccessibilityFeatures {
 
   // ── Bionic Reading ────────────────────────────────────
 
+  _isInTranslatedElement(parent) {
+    if (!parent) return true;
+    return parent.closest(
+      '.ot-paragraph-bilingual, .ot-paragraph-translated, .ot-click-translated, .ot-bilingual-container, .ot-translated-text, .ot-original-text, span[data-ot-bionic], span[data-ot-sentence-break]'
+    ) !== null;
+  }
+
   applyBionicReading() {
     if (this._bionicApplied) return;
     this._bionicApplied = true;
@@ -236,6 +243,9 @@ class AccessibilityFeatures {
             return NodeFilter.FILTER_REJECT;
           }
           if (parent.closest(`[${this.bionicMark}]`)) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          if (this._isInTranslatedElement(parent)) {
             return NodeFilter.FILTER_REJECT;
           }
           const text = node.textContent.trim();
@@ -334,6 +344,9 @@ class AccessibilityFeatures {
             return NodeFilter.FILTER_REJECT;
           }
           if (parent.closest(`[${this.sentenceBreakMark}]`)) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          if (this._isInTranslatedElement(parent)) {
             return NodeFilter.FILTER_REJECT;
           }
           const text = node.textContent.trim();

@@ -55,23 +55,43 @@ class TranslationRenderer {
 
       container.classList.add('ot-clickable-paragraph');
 
+      // Save original HTML BEFORE adding the indicator, for clean restore
+      if (container._otOriginalHTML === undefined) {
+        container._otOriginalHTML = container.innerHTML;
+      }
+
       const indicator = document.createElement('span');
       indicator.className = 'ot-click-indicator';
       indicator.textContent = 'T';
       container.appendChild(indicator);
 
-      container._otParagraphGroup = group;
-
       container._otClickHandler = async (event) => {
         event.stopPropagation();
-        if (container.classList.contains('ot-click-translated') ||
-            container.classList.contains('ot-click-translating')) {
+
+        // Toggle: click translated paragraph to restore original
+        if (container.classList.contains('ot-click-translated')) {
+          if (container._otOriginalHTML !== undefined) {
+            container.innerHTML = container._otOriginalHTML;
+          }
+          container.classList.remove('ot-click-translated');
+          this.translatedElements.delete(container);
+          this.originalTexts.delete(container);
+          const newIndicator = document.createElement('span');
+          newIndicator.className = 'ot-click-indicator';
+          newIndicator.textContent = 'T';
+          container.appendChild(newIndicator);
+          return;
+        }
+
+        if (container.classList.contains('ot-click-translating')) {
           return;
         }
         container.classList.add('ot-click-translating');
         try {
           await translateCallback(group, container);
         } catch (e) {
+          // fall through — finally cleans up the translating class
+        } finally {
           container.classList.remove('ot-click-translating');
         }
       };
@@ -988,6 +1008,11 @@ class TranslationRenderer {
     const className = element.className || '';
     const id = element.id || '';
 
+    // Skip safety check for extension-managed elements (ot- prefixed classes)
+    if (/\bot-/.test(className)) {
+      return true;
+    }
+
     return !TranslationRenderer.SECURITY_CONFIG.DANGEROUS_CLASS_PATTERNS.some(pattern =>
       pattern.test(className) || pattern.test(id)
     );
@@ -1567,7 +1592,11 @@ class TranslationRenderer {
     this.originalTexts.forEach((originalContent, element) => {
       if (element.parentElement) {
         // Check if this is a container element (has innerHTML stored)
-        if (element.classList && element.classList.contains('ot-paragraph-bilingual')) {
+        if (element._otOriginalHTML !== undefined) {
+          // Click-translated element: use saved clean original HTML
+          element.innerHTML = element._otOriginalHTML;
+          element.classList.remove('ot-click-translated');
+        } else if (element.classList && element.classList.contains('ot-paragraph-bilingual')) {
           // Restore original HTML content for bilingual containers
           element.innerHTML = originalContent;
 
