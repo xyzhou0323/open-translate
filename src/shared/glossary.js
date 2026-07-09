@@ -21,7 +21,19 @@ const BUILTIN_GLOSSARY = {
 
   // 诊断与现象
   autism: { zh: '孤独谱系', incorrect: ['自闭症', '自闭', '孤独症'], note: '泛指概念/谱系本身；诊断语境下可译为"孤独谱系障碍"', category: '诊断与现象' },
-  autistic: { zh: '孤独谱系', incorrect: ['自闭症', '自闭', '孤独症', '自闭的', '孤独症的'], note: '作形容词；指人时用"孤独谱系者"；诊断语境下形容词可用"孤独谱系障碍的"', category: '诊断与现象' },
+  autistic: { zh: '孤独谱系', incorrect: [
+    // Person references — these must come before shorter patterns (sorted longest-first in constructor)
+    ['自闭症患者', '孤独谱系者'],
+    ['孤独症患者', '孤独谱系者'],
+    ['孤独谱系患者', '孤独谱系者'],  // catches partial correction from other rules
+    // Concept/adjective references → 孤独谱系
+    '自闭症的',
+    '孤独症的',
+    '自闭的',
+    '自闭症',
+    '孤独症',
+    '自闭'
+  ], note: '作形容词；指人时用"孤独谱系者"；诊断语境下形容词可用"孤独谱系障碍的"', category: '诊断与现象' },
   autistics: { zh: '孤独谱系者', incorrect: ['自闭症患者', '孤独症患者'], category: '诊断与现象' },
   'autism spectrum disorder': { zh: '孤独谱系障碍', incorrect: ['自闭症谱系障碍', '孤独症谱系障碍'], abbr: 'ASD', category: '诊断与现象' },
   'autism spectrum': { zh: '孤独谱系', incorrect: ['自闭症谱系', '孤独症谱系'], category: '诊断与现象' },
@@ -92,9 +104,9 @@ const BUILTIN_GLOSSARY = {
   // 常见缩写
   nd: { zh: '神经殊异', note: 'Neurodivergent 缩写', category: '缩写' },
   nt: { zh: '神经典型', note: 'Neurotypical 缩写', category: '缩写' },
-  asd: { zh: '孤独谱系障碍', note: 'Autism Spectrum Disorder 缩写', category: '缩写' },
-  adhd: { zh: '注意缺陷/多动障碍', note: 'Attention Deficit / Hyperactivity Disorder 缩写', category: '缩写' },
-  ocd: { zh: '强迫障碍', note: 'Obsessive-Compulsive Disorder 缩写', category: '缩写' }
+  asd: { zh: '孤独谱系障碍', incorrect: ['自闭症谱系障碍', '自闭症'], note: 'Autism Spectrum Disorder 缩写', category: '缩写' },
+  adhd: { zh: '注意缺陷/多动障碍', incorrect: ['多动症', '注意缺陷多动障碍'], note: 'Attention Deficit / Hyperactivity Disorder 缩写', category: '缩写' },
+  ocd: { zh: '强迫障碍', incorrect: ['强迫症', '强迫性障碍'], note: 'Obsessive-Compulsive Disorder 缩写', category: '缩写' }
 };
 
 /**

@@ -297,7 +297,8 @@ class TextExtractor {
     const navClassSet = new Set(['nav', 'navbar', 'navigation', 'megamenu', 'mega-menu', 'dropdown-menu', 'submenu', 'topbar', 'site-header', 'main-menu']);
     let el = node.parentElement;
     while (el && el !== document.body) {
-      const classes = (el.className || '').toLowerCase().split(/\s+/);
+      const classStr = typeof el.className === 'string' ? el.className : (el.getAttribute('class') || '');
+      const classes = classStr.toLowerCase().split(/\s+/);
       if (classes.some(c => navClassSet.has(c))) return false;
       el = el.parentElement;
     }
@@ -421,7 +422,8 @@ class TextExtractor {
 
     // 排除常见导航/菜单 class 模式（精确匹配，避免误杀含 "-nav-" 的内容 class）
     const navClassSet = new Set(['nav', 'navbar', 'navigation', 'megamenu', 'mega-menu', 'dropdown-menu', 'submenu', 'topbar', 'site-header', 'main-menu']);
-    const classes = (element.className || '').toLowerCase().split(/\s+/);
+    const classStr = typeof element.className === 'string' ? element.className : (element.getAttribute('class') || '');
+    const classes = classStr.toLowerCase().split(/\s+/);
     if (classes.some(c => navClassSet.has(c))) {
       return true;
     }
@@ -858,7 +860,7 @@ class TextExtractor {
       }
     }
 
-    const className = container.className || '';
+    const className = typeof container.className === 'string' ? container.className : (container.getAttribute('class') || '');
     const dangerousClassPatterns = [
       /js-/, /react-/, /vue-/, /ng-/, /ember-/, /backbone-/,
       /component/, /widget/, /interactive/, /clickable/, /btn/, /button/,

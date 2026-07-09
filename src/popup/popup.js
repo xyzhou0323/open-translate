@@ -24,6 +24,8 @@ const elements = {
 let currentTab = null;
 let isTranslated = false;
 let isTranslating = false;
+let hasCachedTranslations = false;
+let translationCancelled = false;
 
 /**
  * Initialize popup
@@ -155,9 +157,64 @@ async function loadPreferences() {
 }
 
 /**
+ * Handle status updates from content script (e.g. auto-translate completing)
+ */
+function handleStatusUpdate(message) {
+  const { status, data } = message;
+
+  switch (status) {
+    case 'translating':
+      isTranslating = true;
+      isTranslated = false;
+      if (data && data.progress !== undefined) {
+        setStatus('translating', `正在翻译页面... ${data.progress}%`);
+      } else {
+        setStatus('translating', '正在翻译页面...');
+      }
+      updateButtonStates();
+      break;
+
+    case 'translated':
+      isTranslating = false;
+      isTranslated = true;
+      hasCachedTranslations = true;
+      translationCancelled = false;
+      setStatus('translated', '页面翻译完成');
+      updateButtonStates();
+
+      // Auto-close popup after translation completes
+      setTimeout(() => {
+        window.close();
+      }, 1000);
+      break;
+
+    case 'restored':
+      isTranslating = false;
+      isTranslated = false;
+      translationCancelled = false;
+      setStatus('restored', '原文已恢复');
+      updateButtonStates();
+      break;
+
+    case 'error':
+      isTranslating = false;
+      setStatus('error', data || '翻译出错');
+      updateButtonStates();
+      break;
+  }
+}
+
+/**
  * Set up event listeners
  */
 function setupEventListeners() {
+  // Listen for status updates from content script (e.g. auto-translate completing)
+  chrome.runtime.onMessage.addListener((message, sender) => {
+    if (message.action === 'statusUpdate' && sender.tab && sender.tab.id === currentTab?.id) {
+      handleStatusUpdate(message);
+    }
+  });
+
   // Translation buttons
   elements.translateBtn.addEventListener('click', handleTranslate);
   elements.restoreBtn.addEventListener('click', handleRestore);
@@ -238,6 +295,7 @@ async function updateUIState() {
     if (response && response.success) {
       isTranslated = response.isTranslated;
       isTranslating = response.isTranslating;
+      hasCachedTranslations = response.hasCachedTranslations || false;
 
       updateStatusDisplay(response);
       updateButtonStates();
@@ -309,7 +367,11 @@ async function sendMessageWithTimeout(tabId, message, timeoutMs = 5000) {
  * Handle translate button click
  */
 async function handleTranslate() {
-  if (isTranslating) return;
+  // If already translating, this click means "cancel"
+  if (isTranslating) {
+    await handleCancelTranslation();
+    return;
+  }
 
   try {
     // Check if extension context is still valid
@@ -317,17 +379,19 @@ async function handleTranslate() {
       throw new Error('扩展上下文已失效，请重新加载扩展。');
     }
 
-    isTranslating = true;
-    showLoading(true);
-    setStatus('translating', '正在翻译页面...');
-    updateButtonStates();
-
-
-
-    // Check if content script is supported
     if (!isContentScriptSupported(currentTab.url)) {
       throw new Error('Translation not available on this page');
     }
+
+    // Toggle: if already translated, restore original instead
+    if (isTranslated) {
+      await handleRestore();
+      return;
+    }
+
+    isTranslating = true;
+    setStatus('translating', '正在翻译页面...');
+    updateButtonStates();
 
     // 确保模式状态正确同步
     const currentMode = getSelectedMode();
@@ -337,25 +401,38 @@ async function handleTranslate() {
       options: {
         sourceLanguage: elements.sourceLanguage.value,
         targetLanguage: elements.targetLanguage.value,
-        forceRefresh: isTranslated,
         translationMode: currentMode
       }
-    }, 60000);
+    }, 300000);
 
     if (response && response.success) {
       isTranslated = response.translated;
       isTranslating = false;
-      setStatus('translated', '页面翻译完成');
+      hasCachedTranslations = true; // Translation populated cache
+      if (translationCancelled) {
+        setStatus('translated', '翻译已暂停');
+      } else {
+        setStatus('translated', '页面翻译完成');
+      }
       updateButtonStates();
 
-      // Close popup after successful translation
-      setTimeout(() => {
-        window.close();
-      }, 1000);
+      // Close popup after successful translation (not on pause)
+      if (!translationCancelled) {
+        setTimeout(() => {
+          window.close();
+        }, 1000);
+      }
     } else {
       throw new Error(response?.error || '翻译失败');
     }
   } catch (error) {
+    // If user paused, don't show error
+    if (translationCancelled) {
+      isTranslating = false;
+      updateButtonStates();
+      return;
+    }
+
     isTranslating = false;
 
     // Use errorHandler if available
@@ -380,6 +457,25 @@ async function handleTranslate() {
   } finally {
     showLoading(false);
   }
+}
+
+/**
+ * Cancel an ongoing translation.
+ */
+/**
+ * Pause an ongoing translation — stop the loop, keep already-translated content.
+ */
+async function handleCancelTranslation() {
+  translationCancelled = true;
+  setStatus('translating', '正在暂停...');
+  try {
+    await sendMessageWithTimeout(currentTab.id, {
+      action: 'cancel'
+    }, 3000);
+  } catch (e) {
+    // Content script may not respond, that's OK
+  }
+  // The translate response handler will update the UI with the final state
 }
 
 /**
@@ -420,7 +516,14 @@ async function handleRestore() {
         throw new Error(response?.error || '切换视图失败');
       }
     } else {
-      // In replace mode, restore original text completely
+      // In replace mode, toggle between showing original and showing translation
+      if (!isTranslated && hasCachedTranslations) {
+        // Currently showing original — re-apply cached translation
+        await handleTranslate();
+        return;
+      }
+
+      // Restore original text
       setStatus('restoring', '正在恢复原文...');
 
       const response = await sendMessageWithTimeout(currentTab.id, {
@@ -432,11 +535,6 @@ async function handleRestore() {
         isTranslating = false;
         setStatus('restored', '原文已恢复');
         updateButtonStates();
-
-        // Close popup after successful restore
-        setTimeout(() => {
-          window.close();
-        }, 1000);
       } else {
         throw new Error(response?.error || '恢复原文失败');
       }
@@ -580,17 +678,22 @@ function setStatus(type, message) {
  * Update button states
  */
 function updateButtonStates() {
-  elements.translateBtn.disabled = isTranslating;
-  elements.restoreBtn.disabled = !isTranslated || isTranslating;
+  elements.translateBtn.disabled = false;
 
   if (isTranslating) {
-    elements.translateBtn.textContent = '翻译中...';
-  } else {
+    elements.translateBtn.textContent = '暂停翻译';
+    elements.translateBtn.classList.add('cancel-btn');
+    elements.restoreBtn.disabled = true;
+    elements.restoreBtn.textContent = '恢复原文';
+  } else if (!isTranslated && hasCachedTranslations) {
+    elements.translateBtn.textContent = '重新翻译';
+    elements.translateBtn.classList.remove('cancel-btn');
+    elements.restoreBtn.disabled = false;
+    elements.restoreBtn.textContent = '显示译文';
+  } else if (isTranslated) {
     elements.translateBtn.textContent = '翻译页面';
-  }
-
-  // Update restore button text based on mode
-  if (isTranslated && !isTranslating) {
+    elements.translateBtn.classList.remove('cancel-btn');
+    elements.restoreBtn.disabled = false;
     const mode = getSelectedMode();
     if (mode === TRANSLATION_MODES.BILINGUAL) {
       elements.restoreBtn.textContent = '仅显示原文';
@@ -598,6 +701,9 @@ function updateButtonStates() {
       elements.restoreBtn.textContent = '恢复原文';
     }
   } else {
+    elements.translateBtn.textContent = '翻译页面';
+    elements.translateBtn.classList.remove('cancel-btn');
+    elements.restoreBtn.disabled = true;
     elements.restoreBtn.textContent = '恢复原文';
   }
 }

@@ -16,10 +16,13 @@ class AccessibilityFeatures {
     this.fontSizeStyleId = 'ot-font-size';
     this.bionicMark = 'data-ot-bionic';
     this.sentenceBreakMark = 'data-ot-sentence-break';
+    this.bionicDimStyleId = 'ot-bionic-dim';
     this.state = {
       font: false,
       chineseFont: false,
       bionicReading: false,
+      bionicBoldRatio: 0.5,
+      bionicDimNonBold: false,
       sentenceBreak: false,
       lineSpacing: 1.5,
       wordSpacing: 0.08,
@@ -35,6 +38,8 @@ class AccessibilityFeatures {
     this.state.font = config.dyslexicFont === true;
     this.state.chineseFont = config.chineseFont === true;
     this.state.bionicReading = config.bionicReading === true;
+    this.state.bionicBoldRatio = parseFloat(config.bionicBoldRatio) || 0.5;
+    this.state.bionicDimNonBold = config.bionicDimNonBold === true;
     this.state.sentenceBreak = config.sentenceBreak === true;
     this.state.lineSpacing = parseFloat(config.lineSpacing) || 1.5;
     this.state.wordSpacing = parseFloat(config.wordSpacing) || 0.08;
@@ -54,6 +59,9 @@ class AccessibilityFeatures {
     }
     if (this.state.bionicReading) {
       this.applyBionicReading();
+    }
+    if (this.state.bionicDimNonBold) {
+      this._applyBionicDimStyle();
     }
   }
 
@@ -75,6 +83,23 @@ class AccessibilityFeatures {
           this.applyBionicReading();
         } else {
           this.restoreBionicReading();
+        }
+        break;
+      case 'bionicBoldRatio':
+        if (this.state.bionicReading) {
+          this.restoreBionicReading();
+          this.applyBionicReading();
+        }
+        break;
+      case 'bionicDimNonBold':
+        if (this.state.bionicDimNonBold) {
+          this._applyBionicDimStyle();
+        } else {
+          this._removeStyle(this.bionicDimStyleId);
+        }
+        if (this.state.bionicReading) {
+          this.restoreBionicReading();
+          this.applyBionicReading();
         }
         break;
       case 'sentenceBreak':
@@ -221,12 +246,15 @@ class AccessibilityFeatures {
   _isInTranslatedElement(parent) {
     if (!parent) return true;
     return parent.closest(
-      '.ot-paragraph-bilingual, .ot-paragraph-translated, .ot-click-translated, .ot-bilingual-container, .ot-translated-text, .ot-original-text, span[data-ot-bionic], span[data-ot-sentence-break]'
+      '.ot-paragraph-translated, .ot-click-translated, .ot-translated-text, span[data-ot-bionic]'
     ) !== null;
   }
 
   applyBionicReading() {
-    if (this._bionicApplied) return;
+    if (this._bionicApplied) {
+      console.log('[ND Translate] applyBionicReading: skipped (_bionicApplied already true)');
+      return;
+    }
     this._bionicApplied = true;
 
     const walker = document.createTreeWalker(
@@ -249,7 +277,7 @@ class AccessibilityFeatures {
             return NodeFilter.FILTER_REJECT;
           }
           const text = node.textContent.trim();
-          if (!text || !/[a-zA-Z]{4,}/.test(text)) {
+          if (!text || !/[a-zA-Z]{2,}/.test(text)) {
             return NodeFilter.FILTER_REJECT;
           }
           return NodeFilter.FILTER_ACCEPT;
@@ -262,6 +290,7 @@ class AccessibilityFeatures {
       nodes.push(walker.currentNode);
     }
 
+    console.log('[ND Translate] applyBionicReading: found %d text nodes to process', nodes.length);
     for (const node of nodes) {
       this._processBionicNode(node);
     }
@@ -279,14 +308,14 @@ class AccessibilityFeatures {
     while ((match = wordRe.exec(text)) !== null) {
       // Text before this word
       if (match.index > lastIndex) {
-        frag.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+        frag.appendChild(this._createTextSegment(text.slice(lastIndex, match.index)));
       }
 
       const word = match[0];
       if (word.length <= 3) {
-        frag.appendChild(document.createTextNode(word));
+        frag.appendChild(this._createTextSegment(word));
       } else {
-        const boldLen = Math.ceil(word.length * 0.5);
+        const boldLen = Math.max(1, Math.ceil(word.length * this.state.bionicBoldRatio));
         const boldPart = word.slice(0, boldLen);
         const restPart = word.slice(boldLen);
 
@@ -297,7 +326,7 @@ class AccessibilityFeatures {
         frag.appendChild(boldEl);
 
         if (restPart) {
-          frag.appendChild(document.createTextNode(restPart));
+          frag.appendChild(this._createTextSegment(restPart));
         }
       }
 
@@ -306,7 +335,7 @@ class AccessibilityFeatures {
 
     // Remaining text after last word
     if (lastIndex < text.length) {
-      frag.appendChild(document.createTextNode(text.slice(lastIndex)));
+      frag.appendChild(this._createTextSegment(text.slice(lastIndex)));
     }
 
     const wrapper = document.createElement('span');
@@ -315,9 +344,21 @@ class AccessibilityFeatures {
     parent.replaceChild(wrapper, textNode);
   }
 
+  _createTextSegment(text) {
+    if (!text) return document.createTextNode('');
+    if (this.state.bionicDimNonBold) {
+      const span = document.createElement('span');
+      span.className = 'ot-bionic-dim';
+      span.setAttribute('data-ot-bionic-dim', '');
+      span.textContent = text;
+      return span;
+    }
+    return document.createTextNode(text);
+  }
+
   restoreBionicReading() {
     this._bionicApplied = false;
-    const markers = document.querySelectorAll(`[${this.bionicMark}]`);
+    const markers = document.querySelectorAll(`[${this.bionicMark}], [data-ot-bionic-dim]`);
     for (const el of markers) {
       const parent = el.parentNode;
       if (!parent) continue;
@@ -325,6 +366,11 @@ class AccessibilityFeatures {
       parent.replaceChild(text, el);
     }
     this._normalizeTextNodes(document.body);
+  }
+
+  _applyBionicDimStyle() {
+    const css = `.ot-bionic-dim { opacity: 0.55; }`;
+    this._injectStyle(this.bionicDimStyleId, css);
   }
 
   // ── Sentence Break ────────────────────────────────────
@@ -523,6 +569,7 @@ class AccessibilityFeatures {
     });
     this._removeStyle(this.spacingStyleId);
     this._removeStyle(this.fontSizeStyleId);
+    this._removeStyle(this.bionicDimStyleId);
     this.restoreBionicReading();
     this.restoreSentenceBreaks();
   }

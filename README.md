@@ -30,6 +30,13 @@ Features a built-in neurodiversity glossary, plus reading aids like OpenDyslexic
 
 ## Installation
 
+### From ZIP (Recommended)
+
+1. Download `nd-translate.zip` from [Releases](https://github.com/xyzhou0323/open-translate/releases)
+2. Extract to any local directory
+3. Go to `chrome://extensions/`, enable "Developer mode"
+4. Click "Load unpacked" and select the extracted `dist/extension` folder
+
 ### Developer Mode
 
 ```bash
@@ -38,7 +45,7 @@ cd open-translate
 ```
 
 1. Go to `chrome://extensions/`, enable "Developer mode"
-2. Click "Load unpacked" and select the project directory
+2. Click "Load unpacked" and select the `dist/extension` folder under the project directory
 
 ## Configuration
 

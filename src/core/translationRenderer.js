@@ -21,6 +21,10 @@ class TranslationRenderer {
     this.maxRetryAttempts = 3;
     this.retryDelay = 2000; // 2秒基础延迟
 
+    // Translation result cache — avoids re-fetching when toggling show/hide
+    this.translationCache = new Map(); // cacheKey → {originalText, translation, sourceLang, targetLang, timestamp}
+    this.maxTranslationCacheSize = 500;
+
     // Performance optimizations
     this.maxCacheSize = 1000;
     this.cleanupInterval = 300000; // 5 minutes
@@ -46,7 +50,7 @@ class TranslationRenderer {
   /**
    * Set up click-to-translate mode — attach click handlers and visual indicators to paragraph containers
    */
-  setupClickToTranslateMode(paragraphGroups, translateCallback) {
+  setupClickToTranslateMode(paragraphGroups, translateCallback, accessibilityFeatures) {
     this.clickableParagraphGroups = paragraphGroups;
 
     paragraphGroups.forEach(group => {
@@ -76,10 +80,32 @@ class TranslationRenderer {
           container.classList.remove('ot-click-translated');
           this.translatedElements.delete(container);
           this.originalTexts.delete(container);
+
+          // Clear rendered results so cached translation can be re-applied
+          this.renderedResults.clear();
+
           const newIndicator = document.createElement('span');
           newIndicator.className = 'ot-click-indicator';
           newIndicator.textContent = 'T';
           container.appendChild(newIndicator);
+
+          // Refresh text node references — innerHTML assignment destroys old nodes
+          // and creates new ones, so group.textNodes must point to the new nodes.
+          this._refreshGroupTextNodes(group, container);
+
+          // Re-apply accessibility features on restored original text
+          if (accessibilityFeatures) {
+            const hasBionic = accessibilityFeatures.state.bionicReading;
+            const hasSentence = accessibilityFeatures.state.sentenceBreak;
+            if (hasSentence) {
+              accessibilityFeatures.restoreSentenceBreaks();
+              accessibilityFeatures.applySentenceBreaks();
+            }
+            if (hasBionic) {
+              accessibilityFeatures._bionicApplied = false;
+              accessibilityFeatures.applyBionicReading();
+            }
+          }
           return;
         }
 
@@ -271,21 +297,206 @@ class TranslationRenderer {
       return;
     }
 
+    // If any text node references are stale (detached from DOM after
+    // innerHTML reset in click-to-translate toggle, or after accessibility
+    // features like sentence breaks replaced individual text nodes), refresh
+    // them all from the container so we operate on live nodes.
+    const anyStale = group.textNodes.some(tn => tn.node && !container.contains(tn.node));
+    if (anyStale) {
+      this._refreshGroupTextNodes(group, container);
+    }
+
     if (!this.originalTexts.has(container)) {
       this.originalTexts.set(container, container.innerHTML);
     }
 
     const translationText = translation.translation || translation;
-    const cleanTranslation = this.stripHtmlTags(translationText);
+    const cleanTranslationText = this.stripHtmlTags(translationText);
 
-    if (this.isSafeForInnerHTMLReplacement(container)) {
+    // For CJK translations, strip bionic reading wrappers (<b class="ot-bionic-bold">)
+    // that were applied to the original English text during setup. Otherwise CJK
+    // characters end up inside <b> tags and appear incorrectly bold.
+    if (this._isCJKText(cleanTranslationText)) {
+      this._stripBionicElements(container);
+      this._refreshGroupTextNodes(group, container);
+    }
+
+    // Check for real child elements (exclude internal indicators and
+    // accessibility wrappers — sentence-break <span>s contain <br> tags
+    // that would fragment the translation with unwanted line breaks).
+    const realChildren = container.children && Array.from(container.children).filter(
+      c => !c.classList.contains('ot-click-indicator') && !c.hasAttribute('data-ot-sentence-break') && !c.hasAttribute('data-ot-bionic') && !c.hasAttribute('data-ot-bionic-dim')
+    );
+    if (realChildren && realChildren.length > 0) {
+      // Container has child elements (links, formatting) — preserve DOM structure
+      // by replacing only text nodes, not innerHTML
+      this._replaceTextNodesPreservingStructure(container, group.textNodes, translationText);
+    } else if (this.isSafeForInnerHTMLReplacement(container)) {
       const sanitizedTranslation = this.sanitizeHtml(translationText);
       container.innerHTML = sanitizedTranslation;
     } else {
+      const cleanTranslation = this.stripHtmlTags(translationText);
       this.replaceTextNodesInContainer(group.textNodes, cleanTranslation);
+      // replaceTextNodesInContainer only touches textNodes in the group,
+      // leaving whitespace-only text nodes between inline elements intact.
+      // For CJK translations this creates unwanted gaps between every word.
+      if (this._isCJKText(cleanTranslation)) {
+        this._stripWhitespaceTextNodes(container);
+        this._stripBionicElements(container);
+      }
     }
 
     this.translatedElements.add(container);
+  }
+
+  /**
+   * Replace text content in a container that has child elements.
+   * Preserves the DOM structure by only modifying text nodes found during extraction.
+   * The translation is placed into the first text node and remaining text nodes are cleared,
+   * since paragraph-level translation returns one flat string.
+   */
+  _replaceTextNodesPreservingStructure(container, textNodes, translationText) {
+    const cleanTranslation = this.stripHtmlTags(translationText);
+
+    // Try to match the translation back to text nodes using original text positions
+    const originalTexts = textNodes.map(tn => tn.node ? (tn.node.textContent || '') : '');
+    const combinedOriginal = originalTexts.join('');
+
+    // Build a simple mapping: find each original text segment in the combined text
+    // and determine where it maps to in the translation
+    this._distributeTranslation(textNodes, originalTexts, combinedOriginal, cleanTranslation);
+
+    // After distribution, whitespace text nodes between inline elements
+    // (e.g. "Hello <span>world</span>") are not in textNodes and remain
+    // untouched. For CJK translations this creates visible gaps between
+    // every word. Strip them.
+    if (this._isCJKText(cleanTranslation)) {
+      this._stripWhitespaceTextNodes(container);
+      this._stripBionicElements(container);
+    }
+  }
+
+  _isCJKText(text) {
+    // CJK characters (Chinese, Japanese, Korean) — these languages do not
+    // separate words with spaces, so preserving original whitespace creates
+    // unwanted gaps.
+    return /[一-鿿㐀-䶿぀-ゟ゠-ヿ가-힣]/.test(text);
+  }
+
+  _stripWhitespaceTextNodes(container) {
+    const walker = document.createTreeWalker(
+      container,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode: (node) => {
+          if (node.parentElement && node.parentElement.classList.contains('ot-click-indicator')) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          return node.textContent.trim() ? NodeFilter.FILTER_SKIP : NodeFilter.FILTER_ACCEPT;
+        }
+      }
+    );
+
+    const toClear = [];
+    let node;
+    while (node = walker.nextNode()) {
+      toClear.push(node);
+    }
+    for (const n of toClear) {
+      n.textContent = '';
+    }
+  }
+
+  _stripBionicElements(container) {
+    const bionics = container.querySelectorAll('[data-ot-bionic], [data-ot-bionic-dim]');
+    for (const el of bionics) {
+      const parent = el.parentNode;
+      if (parent) {
+        parent.replaceChild(document.createTextNode(el.textContent), el);
+      }
+    }
+  }
+
+  /**
+   * Distribute translated text across text nodes proportionally to original text length.
+   * This preserves the DOM structure while approximately mapping translation to text nodes.
+   */
+  _distributeTranslation(textNodes, originalTexts, combinedOriginal, cleanTranslation) {
+    if (!combinedOriginal || combinedOriginal.trim().length === 0) {
+      // Can't map — just put all translation in first text node
+      const first = textNodes[0];
+      if (first && first.node && first.node.nodeType === Node.TEXT_NODE) {
+        first.node.textContent = cleanTranslation;
+      }
+      for (let i = 1; i < textNodes.length; i++) {
+        if (textNodes[i].node && textNodes[i].node.nodeType === Node.TEXT_NODE) {
+          textNodes[i].node.textContent = '';
+        }
+      }
+      return;
+    }
+
+    const totalLen = combinedOriginal.length;
+    let charOffset = 0;
+
+    for (let i = 0; i < textNodes.length; i++) {
+      const tn = textNodes[i];
+      if (!tn.node || tn.node.nodeType !== Node.TEXT_NODE) continue;
+
+      const origLen = originalTexts[i].length;
+      if (origLen === 0) continue;
+
+      // Proportionally map: start and end positions in the translation
+      const startRatio = charOffset / totalLen;
+      const endRatio = (charOffset + origLen) / totalLen;
+
+      const transStart = Math.round(startRatio * cleanTranslation.length);
+      const transEnd = Math.round(endRatio * cleanTranslation.length);
+
+      tn.node.textContent = cleanTranslation.substring(transStart, transEnd);
+      charOffset += origLen;
+    }
+  }
+
+  /**
+   * Refresh text node references in a paragraph group after DOM has been
+   * rebuilt (e.g. click-to-translate toggle restore via innerHTML).
+   * Walks the container to find text nodes that match the original texts.
+   */
+  _refreshGroupTextNodes(group, container) {
+    const walker = document.createTreeWalker(
+      container,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode: (node) => {
+          // Skip the click indicator's text node
+          if (node.parentElement && node.parentElement.classList.contains('ot-click-indicator')) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          return node.textContent.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+        }
+      }
+    );
+
+    const freshNodes = [];
+    let node;
+    while (node = walker.nextNode()) {
+      freshNodes.push({ node, text: node.textContent });
+    }
+
+    if (freshNodes.length === 0) return;
+
+    // After innerHTML restore the DOM structure is identical to when the
+    // extractor first ran. If the text-node count matches, replace references
+    // one-to-one. If counts differ (browser whitespace normalization etc.),
+    // replace the entire array so every text node gets a fresh reference.
+    if (freshNodes.length === group.textNodes.length) {
+      for (let i = 0; i < freshNodes.length; i++) {
+        group.textNodes[i] = freshNodes[i];
+      }
+    } else {
+      group.textNodes = freshNodes;
+    }
   }
 
   /**
@@ -319,7 +530,8 @@ class TranslationRenderer {
         ? actualMode
         : TRANSLATION_MODES.REPLACE;
 
-      if (validMode === TRANSLATION_MODES.REPLACE) {
+      // Click-to-translate mode renders individual paragraphs in replace style
+      if (validMode === TRANSLATION_MODES.REPLACE || validMode === TRANSLATION_MODES.CLICK_TO_TRANSLATE) {
         // Handle paragraph group result
         if (result.container && result.textNodes) {
           this.replaceParagraphGroupContent(result, result);
@@ -366,9 +578,12 @@ class TranslationRenderer {
     if (!result.container) return null;
 
     // 使用容器元素和原文内容生成唯一ID
+    const classStr = typeof result.container.className === 'string'
+      ? result.container.className
+      : (result.container.getAttribute('class') || '');
     const containerId = result.container.tagName +
                        (result.container.id || '') +
-                       (result.container.className || '');
+                       classStr;
     const textHash = this.simpleHash(result.originalText || '');
     return `${containerId}-${textHash}`;
   }
@@ -381,6 +596,64 @@ class TranslationRenderer {
       hash = hash & hash; // Convert to 32bit integer
     }
     return Math.abs(hash).toString(36);
+  }
+
+  /**
+   * Generate cache key for translation caching
+   */
+  generateTranslationCacheKey(originalText, sourceLang, targetLang) {
+    const text = (originalText || '').trim();
+    return `${this.simpleHash(text)}_${sourceLang}_${targetLang}`;
+  }
+
+  /**
+   * Cache a translation result for reuse
+   */
+  cacheTranslation(originalText, translation, sourceLang, targetLang) {
+    if (!originalText || !translation) return;
+
+    const key = this.generateTranslationCacheKey(originalText, sourceLang, targetLang);
+
+    // Evict oldest entries if at capacity
+    if (this.translationCache.size >= this.maxTranslationCacheSize) {
+      const oldestKey = this.translationCache.keys().next().value;
+      this.translationCache.delete(oldestKey);
+    }
+
+    this.translationCache.set(key, {
+      originalText: originalText.trim(),
+      translation,
+      sourceLang,
+      targetLang,
+      timestamp: Date.now()
+    });
+  }
+
+  /**
+   * Get cached translation if available
+   */
+  getCachedTranslation(originalText, sourceLang, targetLang) {
+    const key = this.generateTranslationCacheKey(originalText, sourceLang, targetLang);
+    const cached = this.translationCache.get(key);
+
+    if (cached && cached.translation) {
+      return cached.translation;
+    }
+    return null;
+  }
+
+  /**
+   * Check if translation exists in cache
+   */
+  hasCachedTranslation(originalText, sourceLang, targetLang) {
+    return this.getCachedTranslation(originalText, sourceLang, targetLang) !== null;
+  }
+
+  /**
+   * Clear all cached translations
+   */
+  clearTranslationCache() {
+    this.translationCache.clear();
   }
 
   /**
@@ -1005,7 +1278,7 @@ class TranslationRenderer {
    * 检查元素类名和ID是否安全
    */
   _checkElementIdentifiers(element) {
-    const className = element.className || '';
+    const className = typeof element.className === 'string' ? element.className : (element.getAttribute('class') || '');
     const id = element.id || '';
 
     // Skip safety check for extension-managed elements (ot- prefixed classes)
@@ -1099,15 +1372,23 @@ class TranslationRenderer {
       return;
     }
 
-    const firstTextNode = textNodes[0];
-    if (firstTextNode.node && firstTextNode.node.nodeType === Node.TEXT_NODE) {
-      firstTextNode.node.textContent = translationText;
-    }
-
-    for (let i = 1; i < textNodes.length; i++) {
-      const textNode = textNodes[i];
-      if (textNode.node && textNode.node.nodeType === Node.TEXT_NODE) {
-        textNode.node.textContent = '';
+    // Multiple text nodes — distribute translation proportionally so every
+    // text node gets its share instead of dumping everything in the first one.
+    const originalTexts = textNodes.map(tn => tn.node ? (tn.node.textContent || '') : '');
+    const combinedOriginal = originalTexts.join('');
+    if (combinedOriginal && combinedOriginal.trim().length > 0) {
+      this._distributeTranslation(textNodes, originalTexts, combinedOriginal, translationText);
+    } else {
+      // Fallback: put all translation in the first text node
+      const firstTextNode = textNodes[0];
+      if (firstTextNode.node && firstTextNode.node.nodeType === Node.TEXT_NODE) {
+        firstTextNode.node.textContent = translationText;
+      }
+      for (let i = 1; i < textNodes.length; i++) {
+        const textNode = textNodes[i];
+        if (textNode.node && textNode.node.nodeType === Node.TEXT_NODE) {
+          textNode.node.textContent = '';
+        }
       }
     }
   }
@@ -1616,8 +1897,12 @@ class TranslationRenderer {
           // Special handling for heading elements - restore innerHTML to preserve structure
           element.innerHTML = originalContent;
         } else if (typeof originalContent === 'string') {
-          // Restore text content for text nodes
-          element.textContent = originalContent;
+          // Use innerHTML if content contains HTML tags, otherwise textContent
+          if (/<[a-zA-Z][^>]*>/.test(originalContent)) {
+            element.innerHTML = originalContent;
+          } else {
+            element.textContent = originalContent;
+          }
         }
       }
     });
@@ -1701,7 +1986,9 @@ class TranslationRenderer {
       // 失败和重试统计
       failedElements: this.failedElements.size,
       retryQueueSize: this.retryQueue.size,
-      retryableElements: this.getRetryableElements().length
+      retryableElements: this.getRetryableElements().length,
+      // Translation cache stats
+      cachedTranslations: this.translationCache.size
     };
   }
 

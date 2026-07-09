@@ -6,20 +6,27 @@
  */
 class TranslationCorrector {
   constructor(glossary) {
-    // Build correction rules: only include entries with incorrect[] defined
     this.rules = [];
 
     for (const [en, entry] of Object.entries(glossary)) {
       if (!entry.incorrect || entry.incorrect.length === 0) continue;
 
-      // Escape regex-special chars in the English term for word-boundary matching
       const enPattern = en.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+      // Normalize: plain strings use entry.zh, [wrong, correct] tuples use specific target.
+      // Sort longest-first so "孤独症患者" is replaced before "孤独症" within the same rule.
+      const replacements = entry.incorrect
+        .map(item => {
+          if (Array.isArray(item)) {
+            return { wrong: item[0], correct: item[1] };
+          }
+          return { wrong: item, correct: entry.zh };
+        })
+        .sort((a, b) => b.wrong.length - a.wrong.length);
+
       this.rules.push({
-        // Match English term with case-insensitive word boundaries
         enRegex: new RegExp(`\\b${enPattern}\\b`, 'gi'),
-        correct: entry.zh,
-        incorrect: entry.incorrect
+        replacements
       });
     }
 
@@ -50,12 +57,11 @@ class TranslationCorrector {
       // Reset lastIndex after test()
       rule.enRegex.lastIndex = 0;
 
-      // Replace each incorrect Chinese variant with the correct one
-      for (const wrong of rule.incorrect) {
-        // Escape the Chinese text for regex (no special chars in Chinese, but be safe)
+      // Replacements already sorted longest-first in constructor
+      for (const { wrong, correct } of rule.replacements) {
         const escaped = wrong.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const wrongRegex = new RegExp(escaped, 'g');
-        result = result.replace(wrongRegex, rule.correct);
+        result = result.replace(wrongRegex, correct);
       }
     }
 

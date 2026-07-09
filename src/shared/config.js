@@ -36,6 +36,8 @@ class ConfigManager {
       dyslexicFont: false,
       chineseFont: false,
       bionicReading: false,
+      bionicBoldRatio: 0.5,
+      bionicDimNonBold: false,
       sentenceBreak: false,
       lineSpacing: 1.5,
       wordSpacing: 0.08,
@@ -66,6 +68,8 @@ class ConfigManager {
       'chineseFont',
       'accessibilityEnabled',
       'bionicReading',
+      'bionicBoldRatio',
+      'bionicDimNonBold',
       'sentenceBreak',
       'lineSpacing',
       'wordSpacing',
@@ -226,6 +230,12 @@ class ConfigManager {
     }
     if (validated.fontSize !== undefined) {
       validated.fontSize = Math.max(0.8, Math.min(2.0, parseFloat(validated.fontSize) || 1.0));
+    }
+    if (validated.bionicBoldRatio !== undefined) {
+      validated.bionicBoldRatio = Math.max(0.3, Math.min(0.6, parseFloat(validated.bionicBoldRatio) || 0.5));
+    }
+    if (validated.bionicDimNonBold !== undefined) {
+      validated.bionicDimNonBold = Boolean(validated.bionicDimNonBold);
     }
 
     return validated;

@@ -114,6 +114,10 @@ function initializeElements() {
   elements.dyslexicFont = document.getElementById('dyslexicFont');
   elements.chineseFont = document.getElementById('chineseFont');
   elements.bionicReading = document.getElementById('bionicReading');
+  elements.bionicSubSettings = document.getElementById('bionicSubSettings');
+  elements.bionicBoldRatio = document.getElementById('bionicBoldRatio');
+  elements.bionicBoldRatioValue = document.getElementById('bionicBoldRatioValue');
+  elements.bionicDimNonBold = document.getElementById('bionicDimNonBold');
   elements.sentenceBreak = document.getElementById('sentenceBreak');
   elements.lineSpacing = document.getElementById('lineSpacing');
   elements.lineSpacingValue = document.getElementById('lineSpacingValue');
@@ -210,6 +214,12 @@ async function loadSettings() {
     elements.dyslexicFont.checked = config.dyslexicFont === true;
     elements.chineseFont.checked = config.chineseFont === true;
     elements.bionicReading.checked = config.bionicReading === true;
+    elements.bionicBoldRatio.value = config.bionicBoldRatio || 0.5;
+    elements.bionicBoldRatioValue.textContent = Math.round((config.bionicBoldRatio || 0.5) * 100) + '%';
+    elements.bionicDimNonBold.checked = config.bionicDimNonBold === true;
+    if (elements.bionicSubSettings) {
+      elements.bionicSubSettings.style.display = config.bionicReading ? '' : 'none';
+    }
     elements.sentenceBreak.checked = config.sentenceBreak === true;
     elements.lineSpacing.value = config.lineSpacing || 1.5;
     elements.lineSpacingValue.textContent = config.lineSpacing || 1.5;
@@ -280,14 +290,28 @@ function setupEventListeners() {
     elements.fontSizeValue.textContent = '1.00 (100%)';
     elements.letterSpacing.value = 0.02;
     elements.letterSpacingValue.textContent = '0.02';
+    elements.bionicBoldRatio.value = 0.5;
+    elements.bionicBoldRatioValue.textContent = '50%';
+    elements.bionicDimNonBold.checked = false;
     updatePreview();
   });
 
   // Preview live update
   elements.dyslexicFont.addEventListener('change', updatePreview);
   elements.chineseFont.addEventListener('change', updatePreview);
-  elements.bionicReading.addEventListener('change', updatePreview);
+  elements.bionicReading.addEventListener('change', () => {
+    if (elements.bionicSubSettings) {
+      elements.bionicSubSettings.style.display = elements.bionicReading.checked ? '' : 'none';
+    }
+    updatePreview();
+  });
   elements.sentenceBreak.addEventListener('change', updatePreview);
+  elements.bionicBoldRatio.addEventListener('input', () => {
+    const val = parseFloat(elements.bionicBoldRatio.value);
+    elements.bionicBoldRatioValue.textContent = Math.round(val * 100) + '%';
+    updatePreview();
+  });
+  elements.bionicDimNonBold.addEventListener('change', updatePreview);
   elements.lineSpacing.addEventListener('input', () => {
     elements.lineSpacingValue.textContent = elements.lineSpacing.value;
     updatePreview();
@@ -659,6 +683,8 @@ async function saveSettings() {
       dyslexicFont: elements.dyslexicFont.checked,
       chineseFont: elements.chineseFont.checked,
       bionicReading: elements.bionicReading.checked,
+      bionicBoldRatio: parseFloat(elements.bionicBoldRatio.value) || 0.5,
+      bionicDimNonBold: elements.bionicDimNonBold.checked,
       sentenceBreak: elements.sentenceBreak.checked,
       lineSpacing: parseFloat(elements.lineSpacing.value) || 1.5,
       wordSpacing: parseFloat(elements.wordSpacing.value) || 0.08,
@@ -788,6 +814,9 @@ function updatePreview() {
 function applyBionicPreview() {
   const box = elements.previewBox;
   if (!box) return;
+  const dimEnabled = elements.bionicDimNonBold && elements.bionicDimNonBold.checked;
+  const ratio = parseFloat(elements.bionicBoldRatio.value) || 0.5;
+
   const walker = document.createTreeWalker(box, NodeFilter.SHOW_TEXT);
   const nodes = [];
   while (walker.nextNode()) { nodes.push(walker.currentNode); }
@@ -797,25 +826,41 @@ function applyBionicPreview() {
     let lastIndex = 0;
     const re = /([a-zA-Z]+)/g;
     let match;
+
+    function makeTextSegment(str) {
+      if (dimEnabled && str) {
+        const span = document.createElement('span');
+        span.className = 'ot-bionic-dim-preview';
+        span.setAttribute('data-ot-preview-bionic-dim', '');
+        span.style.opacity = '0.55';
+        span.textContent = str;
+        return span;
+      }
+      return document.createTextNode(str);
+    }
+
     while ((match = re.exec(text)) !== null) {
       if (match.index > lastIndex) {
-        frag.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+        frag.appendChild(makeTextSegment(text.slice(lastIndex, match.index)));
       }
       const word = match[0];
       if (word.length <= 3) {
-        frag.appendChild(document.createTextNode(word));
+        frag.appendChild(makeTextSegment(word));
       } else {
-        const boldLen = Math.ceil(word.length * 0.5);
+        const boldLen = Math.max(1, Math.ceil(word.length * ratio));
         const b = document.createElement('b');
         b.textContent = word.slice(0, boldLen);
         b.setAttribute('data-ot-preview-bionic', '');
+        b.style.fontWeight = '700';
         frag.appendChild(b);
-        frag.appendChild(document.createTextNode(word.slice(boldLen)));
+        if (boldLen < word.length) {
+          frag.appendChild(makeTextSegment(word.slice(boldLen)));
+        }
       }
       lastIndex = match.index + word.length;
     }
     if (lastIndex < text.length) {
-      frag.appendChild(document.createTextNode(text.slice(lastIndex)));
+      frag.appendChild(makeTextSegment(text.slice(lastIndex)));
     }
     const span = document.createElement('span');
     span.setAttribute('data-ot-preview-bionic', '');
@@ -825,7 +870,7 @@ function applyBionicPreview() {
 }
 
 function restoreBionicPreview() {
-  const markers = document.querySelectorAll('[data-ot-preview-bionic]');
+  const markers = document.querySelectorAll('[data-ot-preview-bionic], [data-ot-preview-bionic-dim]');
   for (const el of markers) {
     const parent = el.parentNode;
     if (!parent) continue;

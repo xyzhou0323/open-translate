@@ -16,6 +16,7 @@ let accessibilityFeatures = null;
 let isTranslating = false;
 let isTranslated = false;
 let isNavigating = false; // 新增：标记是否正在导航
+let translationCancelled = false; // 用户主动取消翻译
 let currentTextNodes = [];
 let currentTranslations = [];
 let translationMode = TRANSLATION_MODES.REPLACE; // 统一默认为替换模式
@@ -30,6 +31,7 @@ let retryCheckInterval = null;
 let retryTimeoutId = null;
 let handlingViewport = false;
 let suppressObserver = false;
+let lastViewportTranslation = 0;
 
 /**
  * Initialize content script
@@ -99,6 +101,8 @@ async function loadUserPreferences() {
       'dyslexicFont',
       'chineseFont',
       'bionicReading',
+      'bionicBoldRatio',
+      'bionicDimNonBold',
       'sentenceBreak',
       'lineSpacing',
       'wordSpacing',
@@ -125,6 +129,8 @@ async function loadUserPreferences() {
             dyslexicFont: result.dyslexicFont,
             chineseFont: result.chineseFont,
             bionicReading: result.bionicReading,
+            bionicBoldRatio: result.bionicBoldRatio,
+            bionicDimNonBold: result.bionicDimNonBold,
             sentenceBreak: result.sentenceBreak,
             lineSpacing: result.lineSpacing,
             wordSpacing: result.wordSpacing,
@@ -243,6 +249,11 @@ async function handleMessage(message, sender, sendResponse) {
         sendResponse({ success: true, translated: isTranslated });
         break;
 
+      case 'cancel':
+        handleCancelRequest();
+        sendResponse({ success: true });
+        break;
+
       case 'toggleBilingualView':
         const result = await handleToggleBilingualView();
         sendResponse({ success: true, showingOriginalOnly: result.showingOriginalOnly });
@@ -259,7 +270,8 @@ async function handleMessage(message, sender, sendResponse) {
           isTranslated: isTranslated,
           isTranslating: isTranslating,
           mode: translationMode,
-          stats: translationRenderer.getTranslationStats()
+          stats: translationRenderer.getTranslationStats(),
+          hasCachedTranslations: translationRenderer.translationCache.size > 0
         });
         break;
         
@@ -289,19 +301,26 @@ async function handleMessage(message, sender, sendResponse) {
             if (message.value) {
               // Re-read full config from storage and apply
               chrome.storage.sync.get([
-                'dyslexicFont', 'chineseFont', 'bionicReading', 'sentenceBreak',
-                'lineSpacing', 'wordSpacing', 'letterSpacing', 'fontSize'
+                'dyslexicFont', 'chineseFont', 'bionicReading', 'bionicBoldRatio',
+                'bionicDimNonBold', 'sentenceBreak', 'lineSpacing', 'wordSpacing',
+                'letterSpacing', 'fontSize'
               ], (result) => {
-                accessibilityFeatures.init({
-                  dyslexicFont: result.dyslexicFont,
-                  chineseFont: result.chineseFont,
-                  bionicReading: result.bionicReading,
-                  sentenceBreak: result.sentenceBreak,
-                  lineSpacing: result.lineSpacing,
-                  wordSpacing: result.wordSpacing,
-                  letterSpacing: result.letterSpacing,
-                  fontSize: result.fontSize
-                });
+                try {
+                  accessibilityFeatures.init({
+                    dyslexicFont: result.dyslexicFont,
+                    chineseFont: result.chineseFont,
+                    bionicReading: result.bionicReading,
+                    bionicBoldRatio: result.bionicBoldRatio,
+                    bionicDimNonBold: result.bionicDimNonBold,
+                    sentenceBreak: result.sentenceBreak,
+                    lineSpacing: result.lineSpacing,
+                    wordSpacing: result.wordSpacing,
+                    letterSpacing: result.letterSpacing,
+                    fontSize: result.fontSize
+                  });
+                } catch (e) {
+                  console.error('[updateAccessibility] Failed to init accessibility features:', e);
+                }
                 setTimeout(() => { suppressObserver = false; }, 0);
               });
             } else {
@@ -334,6 +353,77 @@ async function handleMessage(message, sender, sendResponse) {
 }
 
 /**
+ * Get clean text from a paragraph group, excluding the click indicator "T".
+ * `combinedText` is captured during extraction before the indicator is added
+ * to the DOM, so it is always clean. The fallback strips the indicator node.
+ */
+function getGroupText(group) {
+  if (group.combinedText) return group.combinedText;
+  if (!group.container) return '';
+  const indicator = group.container.querySelector('.ot-click-indicator');
+  if (indicator) {
+    const clone = group.container.cloneNode(true);
+    const cloneIndicator = clone.querySelector('.ot-click-indicator');
+    if (cloneIndicator) cloneIndicator.remove();
+    return clone.textContent || '';
+  }
+  return group.container.textContent || '';
+}
+
+/**
+ * Create a click-to-translate handler with cache support.
+ * Returns a callback suitable for TranslationRenderer.setupClickToTranslateMode.
+ */
+function createClickToTranslateHandler(targetLanguage, sourceLanguage) {
+  return async (group, container) => {
+    try {
+      if (isNavigating) return;
+
+      const originalText = getGroupText(group);
+      const cachedTranslation = translationRenderer.getCachedTranslation(originalText, sourceLanguage, targetLanguage);
+
+      let result;
+      if (cachedTranslation !== null) {
+        result = {
+          success: true,
+          originalText: originalText,
+          translation: cachedTranslation,
+          container: group.container,
+          textNodes: group.textNodes,
+          fromCache: true
+        };
+      } else {
+        const useFreeTranslator = useFreeMode !== false;
+        const results = useFreeTranslator
+          ? await freeTranslator.translateParagraphGroups([group], targetLanguage, sourceLanguage, null, { translationMode: TRANSLATION_MODES.REPLACE })
+          : await translationService.translateParagraphGroups([group], targetLanguage, sourceLanguage, null, { translationMode: TRANSLATION_MODES.REPLACE });
+
+        result = (results && results.length > 0) ? results[0] : null;
+      }
+
+      if (result && result.success) {
+        const correctionEnabled = useFreeMode !== false || translationService.config?.enableCorrection !== false;
+        if (translationCorrector && correctionEnabled && result.originalText && result.translation) {
+          result.translation = translationCorrector.correct(result.originalText, result.translation);
+        }
+        suppressObserver = true;
+        translationRenderer.renderSingleResult(result, TRANSLATION_MODES.REPLACE);
+        container.classList.add('ot-click-translated');
+        currentTextNodes.push(result);
+        currentTranslations.push(result.translation);
+
+        if (!result.fromCache) {
+          translationRenderer.cacheTranslation(result.originalText, result.translation, sourceLanguage, targetLanguage);
+        }
+        setTimeout(() => { suppressObserver = false; }, 0);
+      }
+    } catch (e) {
+      container.classList.remove('ot-click-translating');
+    }
+  };
+}
+
+/**
  * Handle translation request
  */
 async function handleTranslateRequest(options = {}) {
@@ -356,6 +446,7 @@ async function handleTranslateRequest(options = {}) {
 
   try {
     isTranslating = true;
+    translationCancelled = false;
 
     if (contentObserver) {
       contentObserver.disconnect();
@@ -450,48 +541,33 @@ async function handleTranslateRequest(options = {}) {
       if (translationMode === TRANSLATION_MODES.CLICK_TO_TRANSLATE) {
         clickableParagraphGroups = paragraphGroups;
 
-        translationRenderer.setupClickToTranslateMode(paragraphGroups, async (group, container) => {
-          try {
-            if (isNavigating) return;
+        const clickHandler = createClickToTranslateHandler(targetLanguage, sourceLanguage);
+        translationRenderer.setupClickToTranslateMode(paragraphGroups, clickHandler, accessibilityFeatures);
 
-            const useFreeTranslator = useFreeMode !== false;
-            const results = useFreeTranslator
-              ? await freeTranslator.translateParagraphGroups([group], targetLanguage, sourceLanguage, null, { translationMode: TRANSLATION_MODES.REPLACE })
-              : await translationService.translateParagraphGroups([group], targetLanguage, sourceLanguage, null, { translationMode: TRANSLATION_MODES.REPLACE });
-
-            if (results && results.length > 0) {
-              const result = results[0];
-              if (result.success) {
-                // Post-processing glossary correction
-                const correctionEnabled = useFreeMode !== false || translationService.config?.enableCorrection !== false;
-                if (translationCorrector && correctionEnabled && result.originalText && result.translation) {
-                  result.translation = translationCorrector.correct(result.originalText, result.translation);
-                }
-                // Suppress observer during render to prevent flashing
-                suppressObserver = true;
-                translationRenderer.renderSingleResult(result, TRANSLATION_MODES.REPLACE);
-                container.classList.add('ot-click-translated');
-                currentTextNodes.push(result);
-                currentTranslations.push(result.translation);
-                setTimeout(() => { suppressObserver = false; }, 0);
-              }
-            }
-          } catch (e) {
-            container.classList.remove('ot-click-translating');
+        // Auto-restore previously cached translations on re-translate
+        let restoredCount = 0;
+        for (const group of paragraphGroups) {
+          const originalText = getGroupText(group);
+          if (translationRenderer.getCachedTranslation(originalText, sourceLanguage, targetLanguage) !== null) {
+            await clickHandler(group, group.container);
+            restoredCount++;
           }
-        });
+        }
 
         isTranslated = true;
 
         // Re-apply accessibility features in click-to-translate mode.
-        // Observer is already disconnected, so these DOM changes won't trigger it.
+        // Set suppressObserver BEFORE re-applying — accessibility DOM changes
+        // (e.g. inserting <br> tags for sentence breaks) alter layout and fire
+        // scroll events, which would otherwise trigger handleViewportChange.
+        suppressObserver = true;
         if (accessibilityFeatures) {
-          if (hadBionic) accessibilityFeatures.applyBionicReading();
           if (hadSentenceBreak) accessibilityFeatures.applySentenceBreaks();
+          if (hadBionic) accessibilityFeatures.applyBionicReading();
         }
 
         notifyStatusChange('translated', {
-          totalTranslated: 0,
+          totalTranslated: currentTranslations.length,
           mode: translationMode
         });
         return;
@@ -507,8 +583,8 @@ async function handleTranslateRequest(options = {}) {
       // 实时翻译进度回调函数
       const progressCallback = async (result, completed, total) => {
         try {
-          // 检查是否正在导航，如果是则停止翻译
-          if (isNavigating) {
+          // 检查是否正在导航或用户取消，如果是则停止翻译
+          if (isNavigating || translationCancelled) {
             return;
           }
 
@@ -538,6 +614,13 @@ async function handleTranslateRequest(options = {}) {
             // The renderer will handle the proper replacement
             currentTextNodes.push(result);
             currentTranslations.push(result.translation);
+
+            // Cache translation result for reuse (skip if it came from cache)
+            if (!result.fromCache) {
+              translationRenderer.cacheTranslation(
+                result.originalText, result.translation, sourceLanguage, targetLanguage
+              );
+            }
           } else {
             // Handle failed translations - keep original text
             if (result.textNodes) {
@@ -552,40 +635,83 @@ async function handleTranslateRequest(options = {}) {
         }
       };
 
-      // Route to free translator based on user preference
-      if (useFreeMode !== false) {
-        await freeTranslator.translateParagraphGroups(
-          paragraphGroups,
-          targetLanguage,
-          sourceLanguage,
-          progressCallback,
-          { translationMode: translationMode }
-        );
-      } else {
-        await translationService.translateParagraphGroups(
-          paragraphGroups,
-          targetLanguage,
-          sourceLanguage,
-          progressCallback,
-          { translationMode: translationMode }
-        );
-        // 检查是否有失败的元素需要重试
-        await handleTranslationRetries(targetLanguage, sourceLanguage);
+      // Separate cached vs uncached groups to avoid unnecessary API calls
+      const uncachedGroups = [];
+      let completedCount = 0;
+
+      for (const group of paragraphGroups) {
+        const originalText = getGroupText(group);
+        const cachedTranslation = (!options.forceRefresh)
+          ? translationRenderer.getCachedTranslation(originalText, sourceLanguage, targetLanguage)
+          : null;
+
+        if (cachedTranslation !== null) {
+          completedCount++;
+          const cachedResult = {
+            success: true,
+            originalText: originalText,
+            translation: cachedTranslation,
+            container: group.container,
+            textNodes: group.textNodes,
+            fromCache: true
+          };
+          await progressCallback(cachedResult, completedCount, paragraphGroups.length);
+        } else {
+          uncachedGroups.push(group);
+        }
+      }
+
+      // Only call API for uncached groups
+      if (uncachedGroups.length > 0) {
+        // Route to free translator based on user preference
+        const cancelCheck = () => translationCancelled;
+
+        if (useFreeMode !== false) {
+          await freeTranslator.translateParagraphGroups(
+            uncachedGroups,
+            targetLanguage,
+            sourceLanguage,
+            progressCallback,
+            { translationMode: translationMode, cancelCheck }
+          );
+        } else {
+          await translationService.translateParagraphGroups(
+            uncachedGroups,
+            targetLanguage,
+            sourceLanguage,
+            progressCallback,
+            { translationMode: translationMode, cancelCheck }
+          );
+          // 检查是否有失败的元素需要重试
+          await handleTranslationRetries(targetLanguage, sourceLanguage);
+        }
       }
 
       // Re-apply accessibility features temporarily restored before extraction.
-      // Observer is already disconnected, so these DOM changes won't trigger it.
+      // Set suppressObserver BEFORE re-applying — accessibility DOM changes
+      // (e.g. inserting <br> tags for sentence breaks) alter layout and fire
+      // scroll events, which would otherwise trigger handleViewportChange.
+      // Order must match init(): sentence break first, then bionic.
+      suppressObserver = true;
       if (accessibilityFeatures) {
-        if (hadBionic) accessibilityFeatures.applyBionicReading();
         if (hadSentenceBreak) accessibilityFeatures.applySentenceBreaks();
+        if (hadBionic) accessibilityFeatures.applyBionicReading();
       }
 
     }
 
+    // If cancelled, don't mark as translated
+    if (translationCancelled) {
+      isTranslating = false;
+      return;
+    }
+
     isTranslated = true;
 
-    // 启动定期重试检查
-    startRetryMonitoring(targetLanguage, sourceLanguage);
+    // 启动定期重试检查 (LLM mode only — free translator doesn't have per-element retry)
+    if (useFreeMode === false) {
+      startRetryMonitoring(targetLanguage, sourceLanguage);
+    }
 
     notifyStatusChange('translated', {
       totalTranslated: currentTranslations.length,
@@ -619,6 +745,9 @@ async function handleTranslateRequest(options = {}) {
       throw error;
     }
   } finally {
+    // Set suppressObserver FIRST so the subsequent observer reconnection
+    // doesn't immediately fire from queued DOM changes (scroll, etc).
+    suppressObserver = true;
     isTranslating = false;
 
     // 翻译期间会主动断开观察器，这里统一恢复监听。
@@ -635,6 +764,13 @@ async function handleTranslateRequest(options = {}) {
         characterData: true
       });
     }
+
+    // Delay clearing suppressObserver so post-translation DOM settle
+    // (retry rendering, accessibility re-application) doesn't trigger
+    // unnecessary viewport translation cycles.
+    setTimeout(() => {
+      suppressObserver = false;
+    }, 1000);
   }
 }
 
@@ -647,46 +783,43 @@ async function handleRestoreRequest() {
     // 停止重试监控
     stopRetryMonitoring();
 
+    // Save accessibility state before restore — innerHTML replacement
+    // destroys all bionic/sentence-break wrappers, so we must re-apply after.
+    const hadBionic = accessibilityFeatures && accessibilityFeatures.state.bionicReading;
+    const hadSentenceBreak = accessibilityFeatures && accessibilityFeatures.state.sentenceBreak;
+
     if (translationMode === TRANSLATION_MODES.CLICK_TO_TRANSLATE) {
       // Restore all individually translated paragraphs
       translationRenderer.restoreOriginalText();
 
-      // Re-apply click-to-translate indicators on stored paragraph groups
+      // Re-apply click-to-translate indicators on stored paragraph groups (with cache support)
       translationRenderer.cleanupClickToTranslateMode();
-      translationRenderer.setupClickToTranslateMode(clickableParagraphGroups, async (group, container) => {
-        try {
-          if (isNavigating) return;
-
-          const targetLanguage = 'zh-CN';
-          const sourceLanguage = 'auto';
-
-          const useFreeTranslator = useFreeMode !== false;
-          const results = useFreeTranslator
-            ? await freeTranslator.translateParagraphGroups([group], targetLanguage, sourceLanguage, null, { translationMode: TRANSLATION_MODES.REPLACE })
-            : await translationService.translateParagraphGroups([group], targetLanguage, sourceLanguage, null, { translationMode: TRANSLATION_MODES.REPLACE });
-
-          if (results && results.length > 0) {
-            const result = results[0];
-            if (result.success) {
-              // Post-processing glossary correction
-              const correctionEnabled = useFreeMode !== false || translationService.config?.enableCorrection !== false;
-              if (translationCorrector && correctionEnabled && result.originalText && result.translation) {
-                result.translation = translationCorrector.correct(result.originalText, result.translation);
-              }
-              translationRenderer.renderSingleResult(result, TRANSLATION_MODES.REPLACE);
-              container.classList.add('ot-click-translated');
-              currentTextNodes.push(result);
-              currentTranslations.push(result.translation);
-            }
-          }
-        } catch (e) {
-          container.classList.remove('ot-click-translating');
-        }
-      });
+      translationRenderer.setupClickToTranslateMode(clickableParagraphGroups,
+        createClickToTranslateHandler(targetLanguage, sourceLanguage), accessibilityFeatures);
 
       isTranslated = false;
       currentTextNodes = [];
       currentTranslations = [];
+
+      // Re-apply accessibility features after DOM restoration.
+      // Order must match init(): sentence break first, then bionic.
+      // _bionicApplied must be reset since restoreOriginalText()
+      // replaced innerHTML and destroyed all bionic wrappers.
+      if (accessibilityFeatures) {
+        console.log('[ND Translate] handleRestoreRequest: reapplying accessibility. hadBionic=%s, hadSentenceBreak=%s',
+          hadBionic, hadSentenceBreak);
+        if (hadSentenceBreak) {
+          accessibilityFeatures.restoreSentenceBreaks();
+          accessibilityFeatures.applySentenceBreaks();
+        }
+        if (hadBionic) {
+          console.log('[ND Translate] handleRestoreRequest: resetting _bionicApplied and applying bionic');
+          accessibilityFeatures._bionicApplied = false;
+          accessibilityFeatures.applyBionicReading();
+        }
+      } else {
+        console.log('[ND Translate] handleRestoreRequest: accessibilityFeatures is null/undefined!');
+      }
 
       notifyStatusChange('restored');
       suppressObserver = false;
@@ -701,6 +834,24 @@ async function handleRestoreRequest() {
       isTranslated = false;
       currentTextNodes = [];
       currentTranslations = [];
+
+      // Re-apply accessibility features after DOM restoration.
+      // Order must match init(): sentence break first, then bionic.
+      if (accessibilityFeatures) {
+        console.log('[ND Translate] handleRestoreRequest (replace): reapplying. hadBionic=%s, hadSentenceBreak=%s',
+          hadBionic, hadSentenceBreak);
+        if (hadSentenceBreak) {
+          accessibilityFeatures.restoreSentenceBreaks();
+          accessibilityFeatures.applySentenceBreaks();
+        }
+        if (hadBionic) {
+          console.log('[ND Translate] handleRestoreRequest (replace): resetting _bionicApplied and applying bionic');
+          accessibilityFeatures._bionicApplied = false;
+          accessibilityFeatures.applyBionicReading();
+        }
+      } else {
+        console.log('[ND Translate] handleRestoreRequest (replace): accessibilityFeatures is null!');
+      }
     }
 
     notifyStatusChange('restored');
@@ -709,6 +860,26 @@ async function handleRestoreRequest() {
   } finally {
     suppressObserver = false;
   }
+}
+
+/**
+ * Handle user cancel request — stop translation loop, keep already-translated content.
+ */
+function handleCancelRequest() {
+  translationCancelled = true;
+  isTranslating = false;
+
+  // Remove all "translating" indicators
+  document.querySelectorAll('.ot-translating').forEach(el => {
+    el.classList.remove('ot-translating');
+  });
+
+  // Keep already-translated paragraphs — don't restore
+  isTranslated = true;
+  notifyStatusChange('translated', {
+    totalTranslated: currentTranslations.length,
+    mode: translationMode
+  });
 }
 
 /**
@@ -732,6 +903,21 @@ async function handleToggleBilingualView() {
     } else {
       // Currently showing both, switch to show original only
       translationRenderer.showOriginalOnly();
+
+      // Ensure accessibility features are present on original text.
+      // After translation, bionic/sentence-break were re-applied to the
+      // original text in bilingual containers; but if anything stripped
+      // them (e.g. viewport change handler), re-apply now.
+      const hasBionic = accessibilityFeatures && accessibilityFeatures.state.bionicReading;
+      const hasSentence = accessibilityFeatures && accessibilityFeatures.state.sentenceBreak;
+      if (hasBionic) {
+        accessibilityFeatures._bionicApplied = false;
+        accessibilityFeatures.applyBionicReading();
+      }
+      if (hasSentence) {
+        accessibilityFeatures.applySentenceBreaks();
+      }
+
       notifyStatusChange('original-only-view');
       return { showingOriginalOnly: true };
     }
@@ -771,16 +957,19 @@ async function handleSwitchModeRequest(newMode) {
     // 保存用户偏好
     await chrome.storage.sync.set({ translationMode: newMode });
 
-    // 如果页面已翻译，需要重新翻译以确保模式切换正确
+    // 如果页面已翻译，需要重新渲染为新模式
     if (isTranslated && currentTranslations.length > 0) {
-      // 清理缓存确保重新提取和翻译
+      // 清理当前渲染和提取器缓存
+      translationRenderer.restoreOriginalText();
+      isTranslated = false;
+      currentTextNodes = [];
+      currentTranslations = [];
       if (textExtractor) {
         textExtractor.clearCache();
       }
 
-      // 强制重新翻译以确保模式切换的正确性
+      // 使用缓存重新渲染（翻译结果不变，仅渲染方式变化）
       await handleTranslateRequest({
-        forceRefresh: true,
         translationMode: newMode
       });
     }
@@ -1056,7 +1245,17 @@ async function handleViewportChange() {
   // Never auto-translate in click-to-translate mode — the user picks
   // individual paragraphs to translate manually.
   if (translationMode === TRANSLATION_MODES.CLICK_TO_TRANSLATE) return;
+
+  // Enforce a minimum cooldown between viewport translation passes.
+  // Accessibility feature re-application (sentence breaks, bionic reading)
+  // changes DOM layout which can fire scroll events — without a cooldown
+  // those scroll events re-trigger handleViewportChange in a tight loop.
+  const now = Date.now();
+  if (now - lastViewportTranslation < 5000) return;
+  lastViewportTranslation = now;
+
   handlingViewport = true;
+  suppressObserver = true;
 
   // Disconnect observer entirely during viewport translation,
   // same as handleTranslateRequest. This prevents any DOM changes
@@ -1065,23 +1264,13 @@ async function handleViewportChange() {
     contentObserver.disconnect();
   }
 
-  const hadBionic = accessibilityFeatures && accessibilityFeatures.state.bionicReading;
-  const hadSentenceBreak = accessibilityFeatures && accessibilityFeatures.state.sentenceBreak;
-
   try {
-    // Temporarily restore Bionic Reading so text extraction sees clean text
-    if (accessibilityFeatures) {
-      if (hadBionic) accessibilityFeatures.restoreBionicReading();
-      if (hadSentenceBreak) accessibilityFeatures.restoreSentenceBreaks();
-    }
-    textExtractor.clearCache();
-
     // 查找视口内未翻译的元素
+    textExtractor.clearCache();
     const untranslatedGroups = textExtractor.extractParagraphGroups(document.body, {
       translationMode: translationMode,
       prioritizeViewport: true
     }).filter(group => {
-      // 检查是否已经翻译过
       return !group.container.closest('.ot-bilingual-container, .ot-paragraph-bilingual') &&
              !group.container.classList.contains('ot-paragraph-bilingual') &&
              !translationRenderer.translatedElements.has(group.container);
@@ -1095,20 +1284,34 @@ async function handleViewportChange() {
       return rect.top < window.innerHeight && rect.bottom > 0;
     });
 
-    if (viewportGroups.length > 0) {
-      // 进行增量翻译
-      await performIncrementalTranslation(viewportGroups);
+    if (viewportGroups.length === 0) return;
+
+    // Only manipulate accessibility features when we actually have content to translate.
+    // Restore-reapply cycles cause layout oscillation that triggers repeated scroll
+    // events, leading to an infinite loop.
+    const hadBionic = accessibilityFeatures && accessibilityFeatures.state.bionicReading;
+    const hadSentenceBreak = accessibilityFeatures && accessibilityFeatures.state.sentenceBreak;
+    if (accessibilityFeatures) {
+      if (hadBionic) accessibilityFeatures.restoreBionicReading();
+      if (hadSentenceBreak) accessibilityFeatures.restoreSentenceBreaks();
+    }
+
+    // 进行增量翻译
+    await performIncrementalTranslation(viewportGroups);
+
+    // Re-apply accessibility after translation (order: sentence break first)
+    if (accessibilityFeatures) {
+      if (hadSentenceBreak) accessibilityFeatures.applySentenceBreaks();
+      if (hadBionic) accessibilityFeatures.applyBionicReading();
     }
   } catch (error) {
     console.warn('Dynamic translation failed:', error);
   } finally {
-    if (accessibilityFeatures) {
-      if (hadBionic) accessibilityFeatures.applyBionicReading();
-      if (hadSentenceBreak) accessibilityFeatures.applySentenceBreaks();
-    }
     handlingViewport = false;
 
-    // Re-connect observer for future dynamic content
+    // Re-connect observer for future dynamic content.
+    // Delay resetting suppressObserver so any post-translation DOM
+    // settling doesn't immediately trigger another cycle.
     if (contentObserver) {
       contentObserver.observe(document.body, {
         childList: true,
@@ -1116,6 +1319,9 @@ async function handleViewportChange() {
         characterData: true
       });
     }
+    setTimeout(() => {
+      suppressObserver = false;
+    }, 1000);
   }
 }
 
@@ -1175,7 +1381,7 @@ function startRetryMonitoring(targetLanguage, sourceLanguage) {
     clearInterval(retryCheckInterval);
   }
 
-  // 每3秒检查一次是否有可重试的元素
+  // 每3秒检查一次是否有可重试的元素，全部清除后自动停止
   retryCheckInterval = setInterval(async () => {
     try {
       if (isTranslating || isNavigating) return;
@@ -1184,6 +1390,9 @@ function startRetryMonitoring(targetLanguage, sourceLanguage) {
       if (stats.retryableElements > 0) {
         console.log(`[Content] Periodic retry check: ${stats.retryableElements} elements ready`);
         await handleTranslationRetries(targetLanguage, sourceLanguage);
+      } else {
+        // No more retryable elements — stop the interval
+        stopRetryMonitoring();
       }
     } catch (error) {
       console.warn('[Content] Error in retry monitoring:', error);
@@ -1235,16 +1444,26 @@ async function performIncrementalTranslation(paragraphGroups) {
     const targetLanguage = window.lastTranslationSettings?.targetLanguage || 'zh-CN';
     const sourceLanguage = window.lastTranslationSettings?.sourceLanguage || 'auto';
 
-    await translationService.translateParagraphGroups(
-      paragraphGroups,
-      targetLanguage,
-      sourceLanguage,
-      progressCallback,
-      { translationMode: translationMode }
-    );
-
-    // 检查增量翻译后是否有失败元素需要重试
-    await handleTranslationRetries(targetLanguage, sourceLanguage);
+    // Route through the same translator backend as the main flow
+    if (useFreeMode !== false) {
+      await freeTranslator.translateParagraphGroups(
+        paragraphGroups,
+        targetLanguage,
+        sourceLanguage,
+        progressCallback,
+        { translationMode: translationMode }
+      );
+    } else {
+      await translationService.translateParagraphGroups(
+        paragraphGroups,
+        targetLanguage,
+        sourceLanguage,
+        progressCallback,
+        { translationMode: translationMode }
+      );
+      // Only retry failed elements for LLM mode (free mode doesn't have per-element failures)
+      await handleTranslationRetries(targetLanguage, sourceLanguage);
+    }
 
   } catch (error) {
     console.warn('Incremental translation failed:', error);

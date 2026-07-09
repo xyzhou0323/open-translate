@@ -332,7 +332,7 @@ class InputFieldListener {
     }
 
     // 检查 class 名称中是否包含输入相关关键词
-    const className = element.className || '';
+    const className = typeof element.className === 'string' ? element.className : (element.getAttribute('class') || '');
     const inputKeywords = ['search', 'input', 'textbox', 'field', 'query'];
     if (inputKeywords.some(keyword => className.toLowerCase().includes(keyword))) {
       return true;

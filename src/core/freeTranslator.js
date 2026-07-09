@@ -104,9 +104,15 @@ class FreeTranslator {
     const total = paragraphGroups.length;
     const results = [];
     let completed = 0;
+    const cancelCheck = options.cancelCheck || null;
 
     // Process paragraphs sequentially to avoid rate limiting
     for (const group of paragraphGroups) {
+      // Check for cancellation before each paragraph
+      if (cancelCheck && cancelCheck()) {
+        break;
+      }
+
       try {
         const translation = await this.translate(group.combinedText, targetLanguage, sourceLanguage);
 

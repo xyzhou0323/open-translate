@@ -30,6 +30,13 @@
 
 ## 安装
 
+### 从 ZIP 安装（推荐）
+
+1. 从 [Releases](https://github.com/xyzhou0323/open-translate/releases) 下载 `nd-translate.zip`
+2. 解压到本地任意目录
+3. 打开 `chrome://extensions/`，启用「开发者模式」
+4. 点击「加载已解压的扩展程序」，选择解压后的 `dist/extension` 文件夹
+
 ### 开发者模式
 
 ```bash
@@ -38,7 +45,7 @@ cd open-translate
 ```
 
 1. 打开 `chrome://extensions/`，启用「开发者模式」
-2. 点击「加载已解压的扩展程序」，选择项目目录
+2. 点击「加载已解压的扩展程序」，选择项目目录下的 `dist/extension` 文件夹
 
 ## 配置
 

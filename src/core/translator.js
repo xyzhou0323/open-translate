@@ -1258,6 +1258,14 @@ Translations:`;
 
       const translationPromise = semaphore.acquire().then(async (release) => {
         try {
+          // Check for cancellation before API call
+          if (options.cancelCheck && options.cancelCheck()) {
+            release();
+            return { id: group.id, container: group.container, textNodes: group.textNodes,
+              originalText: group.combinedText, translation: group.combinedText,
+              success: false, error: 'Cancelled', cancelled: true };
+          }
+
           const startTime = Date.now();
 
           const translation = await this.translateText(
