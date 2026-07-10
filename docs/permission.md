@@ -22,6 +22,8 @@
   - Save user language preferences (source language, target language)
   - Store translation mode settings (replace mode, bilingual mode)
   - Save advanced settings (batch size, retry attempts, text merging options, etc.)
+  - Save reading-guide preferences (speed, mute mode, and spotlight setting)
+  - Save reading-format state so users can keep future pages unmodified after choosing Clear
   - Store user interface preferences (auto-translate toggle, format preservation options, etc.)
 - **Data Types**: Only stores configuration parameters and user preferences, does not store translation content or sensitive information
 - **Storage Scope**: Uses Chrome sync storage, supports cross-device synchronization of user settings

@@ -1,5 +1,5 @@
 /**
- * Package script for Open Translate extension
+ * Package script for ND Translate extension
  * Creates distributable packages (ZIP and CRX)
  */
 
@@ -12,7 +12,7 @@ const args = process.argv.slice(2);
 const formatArg = args.find(arg => arg.startsWith('--format='));
 const format = formatArg ? formatArg.split('=')[1] : 'both';
 
-console.log('Open Translate Extension Packager\n');
+console.log('ND Translate Extension Packager\n');
 
 // Validate build first
 console.log('Running build validation...');
@@ -27,7 +27,7 @@ try {
 const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
 const version = manifest.version;
 
-console.log(`\nPackaging Open Translate v${version}...`);
+console.log(`\nPackaging ND Translate v${version}...`);
 
 // Create dist directory
 const distDir = path.join(__dirname, '..', 'dist');
@@ -85,15 +85,15 @@ if (format === 'crx' || format === 'both') {
 console.log('\n' + '='.repeat(50));
 console.log('PACKAGING COMPLETE');
 console.log('='.repeat(50));
-console.log(`Extension: Open Translate v${version}`);
+console.log(`Extension: ND Translate v${version}`);
 console.log(`Output directory: ${distDir}`);
 
-if (fs.existsSync(path.join(distDir, `open-translate-v${version}.zip`))) {
-  console.log(`✓ ZIP package: open-translate-v${version}.zip`);
+if (fs.existsSync(path.join(distDir, `nd-translate-v${version}.zip`))) {
+  console.log(`✓ ZIP package: nd-translate-v${version}.zip`);
 }
 
-if (fs.existsSync(path.join(distDir, `open-translate-v${version}.crx`))) {
-  console.log(`✓ CRX package: open-translate-v${version}.crx`);
+if (fs.existsSync(path.join(distDir, `nd-translate-v${version}.crx`))) {
+  console.log(`✓ CRX package: nd-translate-v${version}.crx`);
 }
 
 console.log('\nInstallation instructions:');
@@ -233,7 +233,7 @@ function cleanPackageDirectory(packageDir) {
 function createZipPackage(distDir, version) {
   console.log('\nCreating ZIP package...');
   
-  const zipName = `open-translate-v${version}.zip`;
+  const zipName = `nd-translate-v${version}.zip`;
   const zipPath = path.join(distDir, zipName);
   
   try {
@@ -241,7 +241,14 @@ function createZipPackage(distDir, version) {
     execSync(`cd "${path.join(distDir, 'extension')}" && zip -r "../${zipName}" .`, { stdio: 'ignore' });
     console.log(`✓ Created ${zipName}`);
   } catch (error) {
-    console.error('Failed to create ZIP package:', error.message);
+    // Windows environments commonly do not provide the `zip` command. The
+    // built-in tar utility can create ZIP archives with the same layout.
+    try {
+      execSync(`tar -a -c -f "${zipPath}" -C "${path.join(distDir, 'extension')}" .`, { stdio: 'ignore' });
+      console.log(`✓ Created ${zipName} (tar fallback)`);
+    } catch (fallbackError) {
+      console.error('Failed to create ZIP package:', fallbackError.message);
+    }
   }
 }
 
@@ -251,7 +258,7 @@ function createZipPackage(distDir, version) {
 function createCrxPackage(distDir, version) {
   console.log('\nCreating CRX package...');
   
-  const crxName = `open-translate-v${version}.crx`;
+  const crxName = `nd-translate-v${version}.crx`;
   const keyPath = path.join(distDir, 'extension.pem');
   
   // Generate private key if it doesn't exist

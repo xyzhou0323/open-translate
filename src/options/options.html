@@ -98,6 +98,14 @@
       <section class="settings-section">
         <h2 class="section-title">阅读辅助</h2>
         <div class="section-content">
+          <div id="accessibilityStatus" class="format-status" role="status" aria-live="polite">
+            <div>
+              <strong>页面格式增强：已开启</strong>
+              <p>保存后会在新页面应用下方的阅读格式设置。</p>
+            </div>
+            <button type="button" id="clearAccessibilityFormats" class="secondary-btn">清除并保持关闭</button>
+          </div>
+
           <div class="form-group">
             <label class="form-label">
               <input type="checkbox" id="dyslexicFont" class="form-checkbox">
@@ -122,7 +130,7 @@
             <small class="form-help">加粗每个英文单词的前半部分字符，通过视觉锚点引导眼球快速移动。</small>
           </div>
 
-          <div id="bionicSubSettings" style="margin-left: 24px; display: none;">
+          <div id="bionicSubSettings" class="bionic-sub-settings" aria-label="Bionic 阅读子设置">
             <div class="form-row">
               <div class="form-group">
                 <label for="bionicBoldRatio" class="form-label">加粗比例</label>
@@ -174,7 +182,34 @@
           </div>
 
           <div class="form-group">
-            <button type="button" id="resetSpacing" class="secondary-btn" style="width:auto;">恢复默认间距</button>
+            <button type="button" id="resetSpacing" class="secondary-btn" style="width:auto;">恢复推荐排版</button>
+            <small class="form-help">此操作只恢复本页表单的推荐值；如需在新页面完全不改动格式，请使用上方“清除并保持关闭”。</small>
+          </div>
+
+          <!-- 阅读导览预设 -->
+          <div class="form-section">
+            <h3 class="form-section-title">阅读导览</h3>
+            <div class="form-group">
+              <label for="readingGuideSpeed" class="form-label">朗读速度</label>
+              <input type="range" id="readingGuideSpeed" class="form-range" min="0.5" max="6.0" step="0.1" value="3.0">
+              <span id="readingGuideSpeedValue" class="range-value">3.0x</span>
+              <small class="form-help">文字转语音朗读速度。超过 3 倍速时将自动启用静音模式（仅高亮不朗读）。</small>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">
+                  <input type="checkbox" id="readingGuideMuted" class="form-checkbox">
+                  静音模式（仅高亮不朗读）
+                </label>
+              </div>
+              <div class="form-group">
+                <label class="form-label">
+                  <input type="checkbox" id="readingGuideMaskEnabled" class="form-checkbox" checked>
+                  阅读遮罩（聚光灯效果）
+                </label>
+              </div>
+            </div>
+            <small class="form-help">阅读导览通过页面底部工具栏控制播放。此处可预设朗读偏好。</small>
           </div>
 
           <div id="previewBox" class="preview-box">

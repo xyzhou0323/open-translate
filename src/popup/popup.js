@@ -14,8 +14,6 @@ const elements = {
   translateBtn: null,
   restoreBtn: null,
   autoTranslate: null,
-  inputFieldListener: null,
-
   optionsBtn: null,
   loadingOverlay: null
 };
@@ -26,7 +24,6 @@ let isTranslated = false;
 let isTranslating = false;
 let hasCachedTranslations = false;
 let translationCancelled = false;
-
 /**
  * Initialize popup
  */
@@ -74,9 +71,9 @@ function initializeElements() {
   elements.modeClickTranslate = document.getElementById('modeClickTranslate');
   elements.translateBtn = document.getElementById('translateBtn');
   elements.restoreBtn = document.getElementById('restoreBtn');
+  elements.restoreAllBtn = document.getElementById('restoreAllBtn');
   elements.autoTranslate = document.getElementById('autoTranslate');
-  elements.inputFieldListener = document.getElementById('inputFieldListener');
-  elements.accessibilityEnabled = document.getElementById('accessibilityEnabled');
+  elements.toolbarVisible = document.getElementById('toolbarVisible');
 
   elements.optionsBtn = document.getElementById('optionsBtn');
   elements.freeLabel = document.getElementById('freeLabel');
@@ -113,9 +110,8 @@ async function loadPreferences() {
       'targetLanguage',
       'translationMode',
       'autoTranslate',
-      'inputFieldListenerEnabled',
       'useFreeMode',
-      'accessibilityEnabled',
+      'toolbarVisible',
       'translationConfig'
     ], (result) => {
       // Set engine toggle state
@@ -130,8 +126,7 @@ async function loadPreferences() {
       elements.llmLabel.classList.toggle('active', !useFreeMode);
       elements.llmLabel.classList.toggle('disabled', !hasApiKey);
 
-      // Set reading aid master toggle
-      elements.accessibilityEnabled.checked = result.accessibilityEnabled === true;
+      elements.toolbarVisible.checked = result.toolbarVisible === true;
 
       // Set language selections
       elements.sourceLanguage.value = result.sourceLanguage || 'auto';
@@ -149,7 +144,6 @@ async function loadPreferences() {
 
       // Set checkboxes
       elements.autoTranslate.checked = result.autoTranslate || false;
-      elements.inputFieldListener.checked = result.inputFieldListenerEnabled !== false; // Default to true
 
       resolve();
     });
@@ -201,6 +195,7 @@ function handleStatusUpdate(message) {
       setStatus('error', data || '翻译出错');
       updateButtonStates();
       break;
+
   }
 }
 
@@ -218,6 +213,7 @@ function setupEventListeners() {
   // Translation buttons
   elements.translateBtn.addEventListener('click', handleTranslate);
   elements.restoreBtn.addEventListener('click', handleRestore);
+  elements.restoreAllBtn.addEventListener('click', handleRestoreAll);
 
   // Language selection changes
   elements.sourceLanguage.addEventListener('change', saveLanguagePreferences);
@@ -230,7 +226,6 @@ function setupEventListeners() {
 
   // Settings checkboxes
   elements.autoTranslate.addEventListener('change', saveGeneralPreferences);
-  elements.inputFieldListener.addEventListener('change', handleInputFieldListenerToggle);
 
   // Navigation buttons
   elements.optionsBtn.addEventListener('click', () => {
@@ -261,12 +256,18 @@ function setupEventListeners() {
     }
   });
 
-  // Reading aid master toggle
-  elements.accessibilityEnabled.addEventListener('change', () => {
-    const enabled = elements.accessibilityEnabled.checked;
-    chrome.storage.sync.set({ accessibilityEnabled: enabled });
-    sendAccessibilityUpdate('enabled', enabled);
+  // Toolbar visibility toggle
+  elements.toolbarVisible.addEventListener('change', () => {
+    const visible = elements.toolbarVisible.checked;
+    chrome.storage.sync.set({ toolbarVisible: visible });
+    if (currentTab && currentTab.id) {
+      chrome.tabs.sendMessage(currentTab.id, {
+        action: 'toggleToolbar',
+        visible: visible
+      }).catch(() => {});
+    }
   });
+
 }
 
 /**
@@ -383,11 +384,9 @@ async function handleTranslate() {
       throw new Error('Translation not available on this page');
     }
 
-    // Toggle: if already translated, restore original instead
-    if (isTranslated) {
-      await handleRestore();
-      return;
-    }
+    // Translation settings may have changed since the previous run. A new
+    // translate action must apply the currently selected languages/mode rather
+    // than merely restoring the old translation.
 
     isTranslating = true;
     setStatus('translating', '正在翻译页面...');
@@ -401,7 +400,8 @@ async function handleTranslate() {
       options: {
         sourceLanguage: elements.sourceLanguage.value,
         targetLanguage: elements.targetLanguage.value,
-        translationMode: currentMode
+        translationMode: currentMode,
+        forceRefresh: isTranslated
       }
     }, 300000);
 
@@ -568,6 +568,46 @@ async function handleRestore() {
 }
 
 /**
+ * Handle restore-all button click — remove all modifications and restore original page.
+ */
+async function handleRestoreAll() {
+  try {
+    if (!chrome.runtime || !chrome.runtime.id) {
+      throw new Error('扩展上下文已失效，请重新加载扩展。');
+    }
+
+    if (!isContentScriptSupported(currentTab.url)) {
+      throw new Error('此页面不支持此操作');
+    }
+
+    showLoading(true);
+    setStatus('restoring', '正在恢复原网页...');
+
+    const response = await sendMessageWithTimeout(currentTab.id, {
+      action: 'restoreAll'
+    }, 10000);
+
+    if (response && response.success) {
+      isTranslated = false;
+      isTranslating = false;
+      hasCachedTranslations = false;
+      translationCancelled = false;
+      elements.toolbarVisible.checked = false;
+      setStatus('restored', '已恢复原网页');
+      updateButtonStates();
+      setTimeout(() => window.close(), 1000);
+    } else {
+      throw new Error(response?.error || '恢复失败');
+    }
+  } catch (error) {
+    setStatus('error', error.message || '恢复原网页失败');
+    updateButtonStates();
+  } finally {
+    showLoading(false);
+  }
+}
+
+/**
  * Handle translation mode change
  */
 async function handleModeChange() {
@@ -623,37 +663,6 @@ async function saveGeneralPreferences() {
 }
 
 /**
- * Handle input field listener toggle
- */
-async function handleInputFieldListenerToggle() {
-  try {
-    const enabled = elements.inputFieldListener.checked;
-
-    // Save preference
-    await chrome.storage.sync.set({
-      inputFieldListenerEnabled: enabled
-    });
-
-    // Send message to content script to toggle the listener
-    if (currentTab) {
-      await chrome.tabs.sendMessage(currentTab.id, {
-        action: 'toggleInputFieldListener',
-        enabled: enabled
-      });
-    }
-  } catch (error) {
-    if (typeof errorHandler !== 'undefined') {
-      errorHandler.handle(error, 'popup-input-field-listener-toggle', {
-        logToConsole: true,
-        suppressNotification: true
-      });
-    }
-  }
-}
-
-
-
-/**
  * Update status display
  */
 function updateStatusDisplay(response) {
@@ -691,7 +700,7 @@ function updateButtonStates() {
     elements.restoreBtn.disabled = false;
     elements.restoreBtn.textContent = '显示译文';
   } else if (isTranslated) {
-    elements.translateBtn.textContent = '翻译页面';
+    elements.translateBtn.textContent = '重新翻译';
     elements.translateBtn.classList.remove('cancel-btn');
     elements.restoreBtn.disabled = false;
     const mode = getSelectedMode();
@@ -724,20 +733,6 @@ function showLoading(show) {
  */
 function showError(message) {
   // Simple error display - could be enhanced with toast notifications
-}
-
-/**
- * Send accessibility update to content script
- */
-function sendAccessibilityUpdate(key, value) {
-  if (!currentTab || !currentTab.id) return;
-  chrome.tabs.sendMessage(currentTab.id, {
-    action: 'updateAccessibility',
-    key: key,
-    value: value
-  }).catch(() => {
-    // Content script may not be ready; settings are saved to storage regardless
-  });
 }
 
 // Initialize popup when DOM is loaded

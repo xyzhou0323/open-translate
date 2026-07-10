@@ -27,6 +27,9 @@ Features a built-in neurodiversity glossary, plus reading aids like OpenDyslexic
 - **Sentence break**: Split paragraphs by sentence punctuation for easier reading
 - **Spacing controls**: Line height, word spacing, and letter spacing
 - **Font size**: Global text scaling
+- **Reading guide**: Browser TTS, sentence spotlight, speed control, mute mode, and click-to-seek
+- **In-page toolbar**: Translate/retranslate, show or hide translations, and compact reading controls
+- **Clear format mode**: Remove all extension-applied reading formats and keep future pages in their original style until a reading format is enabled again
 
 ## Installation
 
@@ -54,7 +57,21 @@ Click the extension icon → "Advanced Settings":
 - **API Endpoint / Key / Model**: Set up LLM translation. Leave blank to use free Google Translate
 - **Target language**: Default to Simplified Chinese
 - **Glossary toggle**: Enable/disable neurodiversity glossary
-- **Reading aids**: Fonts, Bionic Reading, sentence break, spacing controls
+- **Reading aids**: Fonts, Bionic Reading, sentence break, spacing controls, and reading-guide defaults
+
+## In-page Toolbar
+
+The page-bottom toolbar provides the most common actions without reopening the popup:
+
+- **Translate / Retranslate**: Uses the currently selected source language, target language, and translation mode.
+- **Show / Hide translation**: Toggle between the original page and cached translations. In bilingual mode, it switches between original-only and bilingual views.
+- **Reading guide**: Play, pause, stop, seek, speed, mute, and spotlight controls.
+- **Display**: Opens nearby settings for fonts, Bionic Reading, sentence breaks, and spacing.
+- **Clear**: Removes translations and all extension-applied reading formats. The cleared format state is remembered for new pages.
+
+## Reading Format State
+
+Advanced Settings shows whether page format enhancement is active. Use **Clear and keep off** to preserve websites' original typography on future pages. Changing a reading-format setting and saving enables format enhancement again.
 
 ## License
 

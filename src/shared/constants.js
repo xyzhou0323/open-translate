@@ -24,7 +24,22 @@ const STORAGE_KEYS = {
   INPUT_FIELD_SHIFT_KEY: 'inputFieldShiftKey',
   AUTO_DETECT_PAGE_LANGUAGE: 'autoDetectPageLanguage',
   DEFAULT_TARGET_LANGUAGE: 'defaultTargetLanguage',
-  AVAILABLE_MODELS: 'availableModels'
+  AVAILABLE_MODELS: 'availableModels',
+  READING_GUIDE_SPEED: 'readingGuideSpeed',
+  READING_GUIDE_MUTED: 'readingGuideMuted',
+  READING_GUIDE_MASK_ENABLED: 'readingGuideMaskEnabled',
+  TOOLBAR_VISIBLE: 'toolbarVisible',
+  ACCESSIBILITY_ENABLED: 'accessibilityEnabled',
+  DYSLEXIC_FONT: 'dyslexicFont',
+  CHINESE_FONT: 'chineseFont',
+  BIONIC_READING: 'bionicReading',
+  BIONIC_BOLD_RATIO: 'bionicBoldRatio',
+  BIONIC_DIM_NON_BOLD: 'bionicDimNonBold',
+  SENTENCE_BREAK: 'sentenceBreak',
+  LINE_SPACING: 'lineSpacing',
+  WORD_SPACING: 'wordSpacing',
+  LETTER_SPACING: 'letterSpacing',
+  FONT_SIZE: 'fontSize'
 };
 
 // Language mappings
@@ -198,7 +213,17 @@ const MESSAGE_ACTIONS = {
   GET_TAB_STATUS: 'getTabStatus',
   UPDATE_CONFIG: 'updateConfig',
   TOGGLE_INPUT_FIELD_LISTENER: 'toggleInputFieldListener',
-  UPDATE_INPUT_FIELD_SETTINGS: 'updateInputFieldSettings'
+  UPDATE_INPUT_FIELD_SETTINGS: 'updateInputFieldSettings',
+  READING_GUIDE_START: 'readingGuideStart',
+  READING_GUIDE_PAUSE: 'readingGuidePause',
+  READING_GUIDE_RESUME: 'readingGuideResume',
+  READING_GUIDE_STOP: 'readingGuideStop',
+  READING_GUIDE_SET_SPEED: 'readingGuideSetSpeed',
+  READING_GUIDE_SET_MUTED: 'readingGuideSetMuted',
+  READING_GUIDE_SET_MASK: 'readingGuideSetMask',
+  READING_GUIDE_GET_STATUS: 'readingGuideGetStatus',
+  READING_GUIDE_SEEK: 'readingGuideSeek',
+  TOGGLE_TOOLBAR: 'toggleToolbar'
 };
 
 // Translation status
@@ -219,7 +244,10 @@ const CSS_CLASSES = {
   LOADING: 'ot-loading',
   ERROR: 'ot-error',
   HIDDEN: 'ot-hidden',
-  STYLE_ID: 'open-translate-bilingual-styles'
+  STYLE_ID: 'open-translate-bilingual-styles',
+  READING_SENTENCE_HIGHLIGHT: 'ot-reading-sentence-highlight',
+  READING_WORD_HIGHLIGHT: 'ot-reading-word-highlight',
+  READING_MASK: 'ot-reading-mask'
 };
 
 // Validation limits

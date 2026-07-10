@@ -1,12 +1,12 @@
 /**
- * Build script for Open Translate extension
+ * Build script for ND Translate extension
  * Prepares the extension for distribution
  */
 
 const fs = require('fs');
 const path = require('path');
 
-console.log('Building Open Translate extension...\n');
+console.log('Building ND Translate extension...\n');
 
 // Validate required files
 const requiredFiles = [
@@ -168,7 +168,7 @@ fs.writeFileSync('build-info.json', JSON.stringify(buildInfo, null, 2));
 console.log('\n' + '='.repeat(50));
 console.log('BUILD SUCCESSFUL');
 console.log('='.repeat(50));
-console.log(`Extension: Open Translate v${buildInfo.version}`);
+console.log(`Extension: ND Translate v${buildInfo.version}`);
 console.log(`Build time: ${buildInfo.buildTime}`);
 console.log(`Files validated: ${buildInfo.files}`);
 

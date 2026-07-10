@@ -18,7 +18,8 @@ class AccessibilityFeatures {
     this.sentenceBreakMark = 'data-ot-sentence-break';
     this.bionicDimStyleId = 'ot-bionic-dim';
     this.state = {
-      font: false,
+      enabled: true,
+      dyslexicFont: false,
       chineseFont: false,
       bionicReading: false,
       bionicBoldRatio: 0.5,
@@ -34,8 +35,9 @@ class AccessibilityFeatures {
   /**
    * Initialize with user config.
    */
-  init(config) {
-    this.state.font = config.dyslexicFont === true;
+  init(config = {}) {
+    this.state.enabled = config.accessibilityEnabled !== false;
+    this.state.dyslexicFont = config.dyslexicFont === true;
     this.state.chineseFont = config.chineseFont === true;
     this.state.bionicReading = config.bionicReading === true;
     this.state.bionicBoldRatio = parseFloat(config.bionicBoldRatio) || 0.5;
@@ -46,7 +48,13 @@ class AccessibilityFeatures {
     this.state.letterSpacing = parseFloat(config.letterSpacing) || 0.02;
     this.state.fontSize = parseFloat(config.fontSize) || 1.0;
 
+    if (!this.state.enabled) {
+      this.cleanup();
+      return;
+    }
+
     document.documentElement.setAttribute('data-ot-a11y', '');
+    this._injectProtectionStyles();
     console.log('[ND Translate] Accessibility init, sentenceBreak=%s, bionicReading=%s',
       this.state.sentenceBreak, this.state.bionicReading);
     this._applyFontStyles();
@@ -69,6 +77,11 @@ class AccessibilityFeatures {
    * Update a single config value and re-apply.
    */
   update(key, value) {
+    if (!this.state.enabled) {
+      this.state.enabled = true;
+      document.documentElement.setAttribute('data-ot-a11y', '');
+      this._injectProtectionStyles();
+    }
     if (key in this.state) {
       this.state[key] = value;
     }
@@ -80,6 +93,11 @@ class AccessibilityFeatures {
         break;
       case 'bionicReading':
         if (this.state.bionicReading) {
+          // Sentence break must run BEFORE bionic (bionic fragments text nodes)
+          if (this.state.sentenceBreak) {
+            this.restoreBionicReading();
+            this.applySentenceBreaks();
+          }
           this.applyBionicReading();
         } else {
           this.restoreBionicReading();
@@ -104,7 +122,15 @@ class AccessibilityFeatures {
         break;
       case 'sentenceBreak':
         if (this.state.sentenceBreak) {
-          this.applySentenceBreaks();
+          // If bionic is already on, restore it first so sentence break sees clean text,
+          // then re-apply bionic (sentence break must run BEFORE bionic)
+          if (this.state.bionicReading) {
+            this.restoreBionicReading();
+            this.applySentenceBreaks();
+            this.applyBionicReading();
+          } else {
+            this.applySentenceBreaks();
+          }
         } else {
           this.restoreSentenceBreaks();
         }
@@ -126,7 +152,7 @@ class AccessibilityFeatures {
   // Order: OpenDyslexic (Latin) → LXGW WenKai (CJK via unicode-range) → system fallback
 
   _applyFontStyles() {
-    const useDyslexic = this.state.font;
+    const useDyslexic = this.state.dyslexicFont;
     const useChinese = this.state.chineseFont;
 
     // Manage CDN links
@@ -150,28 +176,69 @@ class AccessibilityFeatures {
       fontStack = "'LXGW WenKai Screen', 'LXGW WenKai', system-ui, -apple-system, sans-serif";
     }
 
+    // Exclude icon elements — their text content IS the glyph, font must not be overridden
+    const iconClassExcludes = [
+      '.material-icons', '.material-icons-outlined', '.material-icons-round',
+      '.material-icons-sharp', '.material-icons-two-tone',
+      '.material-symbols-outlined', '.material-symbols-rounded', '.material-symbols-sharp',
+      '.fa', '.fas', '.far', '.fal', '.fab', '.fad', '.fat', '.glyphicon',
+      '[class*="fa-"]', '[class*=" material-icons"]', '[class*=" material-symbols"]'
+    ].join(',');
+
     const css = `
-      html, body, p, div, span, li, td, th,
-      h1, h2, h3, h4, h5, h6, hgroup,
-      a, blockquote, article, section, aside, nav,
-      main, header, footer, dl, dt, dd, ul, ol,
-      form, label, button, summary, details,
-      figure, figcaption, caption, legend,
-      .ot-clickable-paragraph,
-      .ot-click-indicator {
+      html:not(${iconClassExcludes}),
+      body:not(${iconClassExcludes}),
+      p:not(${iconClassExcludes}), div:not(${iconClassExcludes}),
+      span:not(${iconClassExcludes}), li:not(${iconClassExcludes}),
+      td:not(${iconClassExcludes}), th:not(${iconClassExcludes}),
+      h1:not(${iconClassExcludes}), h2:not(${iconClassExcludes}),
+      h3:not(${iconClassExcludes}), h4:not(${iconClassExcludes}),
+      h5:not(${iconClassExcludes}), h6:not(${iconClassExcludes}),
+      hgroup:not(${iconClassExcludes}),
+      a:not(${iconClassExcludes}),
+      blockquote:not(${iconClassExcludes}),
+      article:not(${iconClassExcludes}), section:not(${iconClassExcludes}),
+      aside:not(${iconClassExcludes}), nav:not(${iconClassExcludes}),
+      main:not(${iconClassExcludes}), header:not(${iconClassExcludes}),
+      footer:not(${iconClassExcludes}),
+      dl:not(${iconClassExcludes}), dt:not(${iconClassExcludes}),
+      dd:not(${iconClassExcludes}), ul:not(${iconClassExcludes}),
+      ol:not(${iconClassExcludes}),
+      form:not(${iconClassExcludes}), label:not(${iconClassExcludes}),
+      button:not(${iconClassExcludes}),
+      summary:not(${iconClassExcludes}), details:not(${iconClassExcludes}),
+      figure:not(${iconClassExcludes}), figcaption:not(${iconClassExcludes}),
+      caption:not(${iconClassExcludes}), legend:not(${iconClassExcludes}),
+      b:not(${iconClassExcludes}), strong:not(${iconClassExcludes}),
+      em:not(${iconClassExcludes}), u:not(${iconClassExcludes}),
+      small:not(${iconClassExcludes}), mark:not(${iconClassExcludes}),
+      sub:not(${iconClassExcludes}), sup:not(${iconClassExcludes}),
+      .ot-bionic-bold:not(${iconClassExcludes}),
+      .ot-bionic-dim:not(${iconClassExcludes}),
+      .ot-clickable-paragraph:not(${iconClassExcludes}),
+      .ot-click-indicator:not(${iconClassExcludes}) {
         font-family: ${fontStack} !important;
-      }
-      .fa, .fas, .far, .fal, .fab, .fad, .glyphicon,
-      .material-icons, .material-icons-outlined,
-      .material-icons-round, .material-icons-sharp,
-      .material-icons-two-tone, [class^="fa-"] {
-        font-family: inherit !important;
       }
       pre, code, kbd, samp, var {
         font-family: monospace !important;
       }
     `;
     this._injectStyle(this.fontStyleId, css);
+  }
+
+  _injectProtectionStyles() {
+    // Toolbar must be immune to all accessibility overrides
+    const css = `
+      #ot-toolbar, #ot-toolbar-min,
+      #ot-toolbar *, #ot-toolbar-min * {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+        letter-spacing: normal !important;
+        word-spacing: normal !important;
+        line-height: 1.3 !important;
+        font-size: 12px !important;
+      }
+    `;
+    this._injectStyle('ot-protection-styles', css);
   }
 
   _manageFontLink(id, enabled, url) {
@@ -250,6 +317,28 @@ class AccessibilityFeatures {
     ) !== null;
   }
 
+  _isIconElement(parent) {
+    if (!parent) return true;
+    const cls = parent.className;
+    if (cls && typeof cls === 'string') {
+      if (/\bmaterial-icons\b/.test(cls) || /\bglyphicon\b/.test(cls) ||
+          /\bfa\b/.test(cls) || /\bfa-[a-z]/.test(cls)) {
+        return true;
+      }
+    }
+    return parent.closest(
+      '.material-icons, .material-icons-outlined, .material-icons-round, .material-icons-sharp, .material-icons-two-tone, [class*="material-icons"], .fa, .fas, .far, .fal, .fab, .fad, .fat, .glyphicon, [class*="fa-"]'
+    ) !== null;
+  }
+
+  _isProtectedElement(parent) {
+    // Elements whose internal text must never be modified:
+    // SVG (Mermaid diagrams, icons), toolbar, icon fonts
+    if (!parent) return true;
+    if (parent.closest('svg, #ot-toolbar, #ot-toolbar-min')) return true;
+    return this._isIconElement(parent);
+  }
+
   applyBionicReading() {
     if (this._bionicApplied) {
       console.log('[ND Translate] applyBionicReading: skipped (_bionicApplied already true)');
@@ -267,13 +356,17 @@ class AccessibilityFeatures {
           const tag = parent.tagName;
           if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT' ||
               tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'CODE' ||
-              tag === 'PRE' || tag === 'KBD' || tag === 'VAR') {
+              tag === 'PRE' || tag === 'KBD' || tag === 'VAR' ||
+              tag === 'SVG' || tag === 'TSPAN' || tag === 'TEXTPATH') {
             return NodeFilter.FILTER_REJECT;
           }
           if (parent.closest(`[${this.bionicMark}]`)) {
             return NodeFilter.FILTER_REJECT;
           }
           if (this._isInTranslatedElement(parent)) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          if (this._isProtectedElement(parent)) {
             return NodeFilter.FILTER_REJECT;
           }
           const text = node.textContent.trim();
@@ -306,14 +399,15 @@ class AccessibilityFeatures {
     let match;
 
     while ((match = wordRe.exec(text)) !== null) {
-      // Text before this word
+      // Text before this word (Chinese, spaces, punctuation) — never dimmed
       if (match.index > lastIndex) {
-        frag.appendChild(this._createTextSegment(text.slice(lastIndex, match.index)));
+        frag.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
       }
 
       const word = match[0];
       if (word.length <= 3) {
-        frag.appendChild(this._createTextSegment(word));
+        // Short words — never dimmed
+        frag.appendChild(document.createTextNode(word));
       } else {
         const boldLen = Math.max(1, Math.ceil(word.length * this.state.bionicBoldRatio));
         const boldPart = word.slice(0, boldLen);
@@ -326,16 +420,17 @@ class AccessibilityFeatures {
         frag.appendChild(boldEl);
 
         if (restPart) {
-          frag.appendChild(this._createTextSegment(restPart));
+          // Only the trailing half of English words gets dimmed
+          frag.appendChild(this._createDimSegment(restPart));
         }
       }
 
       lastIndex = match.index + word.length;
     }
 
-    // Remaining text after last word
+    // Remaining text after last word (Chinese, etc.) — never dimmed
     if (lastIndex < text.length) {
-      frag.appendChild(this._createTextSegment(text.slice(lastIndex)));
+      frag.appendChild(document.createTextNode(text.slice(lastIndex)));
     }
 
     const wrapper = document.createElement('span');
@@ -344,7 +439,7 @@ class AccessibilityFeatures {
     parent.replaceChild(wrapper, textNode);
   }
 
-  _createTextSegment(text) {
+  _createDimSegment(text) {
     if (!text) return document.createTextNode('');
     if (this.state.bionicDimNonBold) {
       const span = document.createElement('span');
@@ -386,13 +481,17 @@ class AccessibilityFeatures {
           const tag = parent.tagName;
           if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT' ||
               tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'CODE' ||
-              tag === 'PRE' || tag === 'KBD' || tag === 'VAR') {
+              tag === 'PRE' || tag === 'KBD' || tag === 'VAR' ||
+              tag === 'SVG' || tag === 'TSPAN' || tag === 'TEXTPATH') {
             return NodeFilter.FILTER_REJECT;
           }
           if (parent.closest(`[${this.sentenceBreakMark}]`)) {
             return NodeFilter.FILTER_REJECT;
           }
           if (this._isInTranslatedElement(parent)) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          if (this._isProtectedElement(parent)) {
             return NodeFilter.FILTER_REJECT;
           }
           const text = node.textContent.trim();
@@ -562,6 +661,7 @@ class AccessibilityFeatures {
 
   cleanup() {
     document.documentElement.removeAttribute('data-ot-a11y');
+    this._removeStyle('ot-protection-styles');
     this._removeStyle(this.fontStyleId);
     Object.values(this.fontLinkIds).forEach(id => {
       const el = document.getElementById(id);

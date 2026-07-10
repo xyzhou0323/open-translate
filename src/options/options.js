@@ -128,7 +128,15 @@ function initializeElements() {
   elements.letterSpacing = document.getElementById('letterSpacing');
   elements.letterSpacingValue = document.getElementById('letterSpacingValue');
   elements.resetSpacing = document.getElementById('resetSpacing');
+  elements.accessibilityStatus = document.getElementById('accessibilityStatus');
+  elements.clearAccessibilityFormats = document.getElementById('clearAccessibilityFormats');
   elements.previewBox = document.getElementById('previewBox');
+
+  // Reading Guide Settings
+  elements.readingGuideSpeed = document.getElementById('readingGuideSpeed');
+  elements.readingGuideSpeedValue = document.getElementById('readingGuideSpeedValue');
+  elements.readingGuideMuted = document.getElementById('readingGuideMuted');
+  elements.readingGuideMaskEnabled = document.getElementById('readingGuideMaskEnabled');
 
   // Actions
   elements.saveSettings = document.getElementById('saveSettings');
@@ -217,9 +225,8 @@ async function loadSettings() {
     elements.bionicBoldRatio.value = config.bionicBoldRatio || 0.5;
     elements.bionicBoldRatioValue.textContent = Math.round((config.bionicBoldRatio || 0.5) * 100) + '%';
     elements.bionicDimNonBold.checked = config.bionicDimNonBold === true;
-    if (elements.bionicSubSettings) {
-      elements.bionicSubSettings.style.display = config.bionicReading ? '' : 'none';
-    }
+    syncBionicSubSettings();
+    updateAccessibilityStatus(config.accessibilityEnabled !== false);
     elements.sentenceBreak.checked = config.sentenceBreak === true;
     elements.lineSpacing.value = config.lineSpacing || 1.5;
     elements.lineSpacingValue.textContent = config.lineSpacing || 1.5;
@@ -229,6 +236,12 @@ async function loadSettings() {
     elements.letterSpacingValue.textContent = config.letterSpacing || 0.02;
     elements.fontSize.value = config.fontSize || 1.0;
     elements.fontSizeValue.textContent = (config.fontSize || 1.0).toFixed(2) + ' (' + Math.round((config.fontSize || 1.0) * 100) + '%)';
+
+    // Reading Guide Settings
+    elements.readingGuideSpeed.value = config.readingGuideSpeed || 3.0;
+    elements.readingGuideSpeedValue.textContent = (config.readingGuideSpeed || 3.0).toFixed(1) + 'x';
+    elements.readingGuideMuted.checked = config.readingGuideMuted === true;
+    elements.readingGuideMaskEnabled.checked = config.readingGuideMaskEnabled !== false; // Default to true
 
     // Update model selection UI
     updateModelSelectionUI();
@@ -268,6 +281,7 @@ function setupEventListeners() {
   
   // Reset settings
   elements.resetSettings.addEventListener('click', resetSettings);
+  elements.clearAccessibilityFormats.addEventListener('click', clearAccessibilityFormats);
 
   // Accessibility sliders
   elements.lineSpacing.addEventListener('input', (e) => {
@@ -296,13 +310,26 @@ function setupEventListeners() {
     updatePreview();
   });
 
+  // Reading Guide settings
+  elements.readingGuideSpeed.addEventListener('input', (e) => {
+    const speed = parseFloat(e.target.value);
+    elements.readingGuideSpeedValue.textContent = speed.toFixed(1) + 'x';
+    if (speed > 3.0 && !elements.readingGuideMuted.checked) {
+      elements.readingGuideMuted.checked = true;
+    }
+  });
+  elements.readingGuideMuted.addEventListener('change', () => {
+    const speed = parseFloat(elements.readingGuideSpeed.value);
+    if (!elements.readingGuideMuted.checked && speed > 3.0) {
+      elements.readingGuideMuted.checked = true;
+    }
+  });
+
   // Preview live update
   elements.dyslexicFont.addEventListener('change', updatePreview);
   elements.chineseFont.addEventListener('change', updatePreview);
   elements.bionicReading.addEventListener('change', () => {
-    if (elements.bionicSubSettings) {
-      elements.bionicSubSettings.style.display = elements.bionicReading.checked ? '' : 'none';
-    }
+    syncBionicSubSettings();
     updatePreview();
   });
   elements.sentenceBreak.addEventListener('change', updatePreview);
@@ -335,6 +362,72 @@ function setupEventListeners() {
   statusClose.addEventListener('click', hideStatusMessage);
 
 
+}
+
+function syncBionicSubSettings() {
+  const enabled = elements.bionicReading.checked;
+  if (elements.bionicSubSettings) {
+    elements.bionicSubSettings.classList.toggle('is-disabled', !enabled);
+  }
+  for (const control of [elements.bionicBoldRatio, elements.bionicDimNonBold]) {
+    if (!control) continue;
+    control.disabled = !enabled;
+    control.setAttribute('aria-disabled', String(!enabled));
+  }
+}
+
+function updateAccessibilityStatus(enabled) {
+  if (!elements.accessibilityStatus) return;
+  elements.accessibilityStatus.classList.toggle('is-cleared', !enabled);
+  const title = elements.accessibilityStatus.querySelector('strong');
+  const description = elements.accessibilityStatus.querySelector('p');
+  if (title) title.textContent = enabled ? '页面格式增强：已开启' : '页面格式增强：已清除';
+  if (description) {
+    description.textContent = enabled
+      ? '保存后会在新页面应用下方的阅读格式设置。'
+      : '新页面将保持网站原有格式；调整任一阅读格式并保存即可重新开启。';
+  }
+}
+
+async function clearAccessibilityFormats() {
+  const clearedSettings = {
+    accessibilityEnabled: false,
+    dyslexicFont: false,
+    chineseFont: false,
+    bionicReading: false,
+    bionicBoldRatio: 0.5,
+    bionicDimNonBold: false,
+    sentenceBreak: false,
+    lineSpacing: 1.5,
+    wordSpacing: 0.08,
+    letterSpacing: 0.02,
+    fontSize: 1.0
+  };
+  try {
+    await chrome.storage.sync.set(clearedSettings);
+    elements.dyslexicFont.checked = false;
+    elements.chineseFont.checked = false;
+    elements.bionicReading.checked = false;
+    elements.bionicDimNonBold.checked = false;
+    elements.sentenceBreak.checked = false;
+    elements.bionicBoldRatio.value = 0.5;
+    elements.bionicBoldRatioValue.textContent = '50%';
+    elements.lineSpacing.value = 1.5;
+    elements.lineSpacingValue.textContent = '1.5';
+    elements.wordSpacing.value = 0.08;
+    elements.wordSpacingValue.textContent = '0.08';
+    elements.letterSpacing.value = 0.02;
+    elements.letterSpacingValue.textContent = '0.02';
+    elements.fontSize.value = 1.0;
+    elements.fontSizeValue.textContent = '1.00 (100%)';
+    syncBionicSubSettings();
+    updateAccessibilityStatus(false);
+    updatePreview();
+    showStatusMessage('已清除阅读格式，新页面将保持原有样式。', 'success');
+  } catch (error) {
+    errorHandler.handle(error, 'options-clear-accessibility-formats');
+    showStatusMessage(ERROR_MESSAGES.TRANSLATION_FAILED, 'error');
+  }
 }
 
 /**
@@ -680,6 +773,13 @@ async function saveSettings() {
       enableGlossary: elements.enableGlossary ? elements.enableGlossary.checked : true,
       enableCorrection: elements.enableCorrection ? elements.enableCorrection.checked : true,
       // Accessibility Settings
+      accessibilityEnabled: elements.dyslexicFont.checked ||
+        elements.chineseFont.checked || elements.bionicReading.checked ||
+        elements.bionicDimNonBold.checked || elements.sentenceBreak.checked ||
+        parseFloat(elements.lineSpacing.value) !== 1.5 ||
+        parseFloat(elements.wordSpacing.value) !== 0.08 ||
+        parseFloat(elements.letterSpacing.value) !== 0.02 ||
+        parseFloat(elements.fontSize.value) !== 1.0,
       dyslexicFont: elements.dyslexicFont.checked,
       chineseFont: elements.chineseFont.checked,
       bionicReading: elements.bionicReading.checked,
@@ -689,10 +789,15 @@ async function saveSettings() {
       lineSpacing: parseFloat(elements.lineSpacing.value) || 1.5,
       wordSpacing: parseFloat(elements.wordSpacing.value) || 0.08,
       letterSpacing: parseFloat(elements.letterSpacing.value) || 0.02,
-      fontSize: parseFloat(elements.fontSize.value) || 1.0
+      fontSize: parseFloat(elements.fontSize.value) || 1.0,
+      // Reading Guide Settings
+      readingGuideSpeed: parseFloat(elements.readingGuideSpeed.value) || 3.0,
+      readingGuideMuted: elements.readingGuideMuted.checked,
+      readingGuideMaskEnabled: elements.readingGuideMaskEnabled.checked
     };
 
     await configManager.saveConfig(settings);
+    updateAccessibilityStatus(settings.accessibilityEnabled);
     showStatusMessage('设置保存成功！', 'success');
 
   } catch (error) {

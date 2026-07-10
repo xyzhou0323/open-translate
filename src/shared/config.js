@@ -42,7 +42,10 @@ class ConfigManager {
       lineSpacing: 1.5,
       wordSpacing: 0.08,
       letterSpacing: 0.02,
-      fontSize: 1.0
+      fontSize: 1.0,
+      readingGuideSpeed: 3.0,
+      readingGuideMuted: false,
+      readingGuideMaskEnabled: true
     };
 
     this.storageKeys = [
@@ -74,7 +77,10 @@ class ConfigManager {
       'lineSpacing',
       'wordSpacing',
       'letterSpacing',
-      'fontSize'
+      'fontSize',
+      'readingGuideSpeed',
+      'readingGuideMuted',
+      'readingGuideMaskEnabled'
     ];
   }
 
@@ -230,6 +236,9 @@ class ConfigManager {
     }
     if (validated.fontSize !== undefined) {
       validated.fontSize = Math.max(0.8, Math.min(2.0, parseFloat(validated.fontSize) || 1.0));
+    }
+    if (validated.readingGuideSpeed !== undefined) {
+      validated.readingGuideSpeed = Math.max(0.5, Math.min(6.0, parseFloat(validated.readingGuideSpeed) || 3.0));
     }
     if (validated.bionicBoldRatio !== undefined) {
       validated.bionicBoldRatio = Math.max(0.3, Math.min(0.6, parseFloat(validated.bionicBoldRatio) || 0.5));

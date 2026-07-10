@@ -11,6 +11,8 @@ let translationCorrector = null;
 let freeTranslator = null;
 let inputFieldListener = null;
 let accessibilityFeatures = null;
+let readingGuide = null;
+let toolbar = null;
 
 // State management
 let isTranslating = false;
@@ -50,7 +52,88 @@ async function initialize() {
     } else {
       console.warn('[ND Translate] AccessibilityFeatures class not defined');
     }
+    if (typeof ReadingGuide !== 'undefined') {
+      readingGuide = new ReadingGuide({
+        textExtractor: null,
+        accessibilityFeatures: accessibilityFeatures,
+        onStatusChange: (status, data) => {
+          notifyStatusChange(status, data);
+          if (toolbar) toolbar._onRGStatusChange(status, data);
+        }
+      });
+      // Load reading preferences
+      chrome.storage.sync.get([
+        'readingGuideSpeed', 'readingGuideMuted', 'readingGuideMaskEnabled'
+      ], (result) => {
+        if (readingGuide) {
+          readingGuide.init({
+            speed: result.readingGuideSpeed || 3.0,
+            muted: result.readingGuideMuted || false,
+            maskEnabled: result.readingGuideMaskEnabled !== false
+          });
+        }
+      });
+    }
     await loadUserPreferences();
+    if (readingGuide && textExtractor) {
+      readingGuide.textExtractor = textExtractor;
+    }
+
+    // Initialize toolbar
+    if (typeof Toolbar !== 'undefined') {
+      toolbar = new Toolbar({
+        readingGuide: readingGuide,
+        accessibilityFeatures: accessibilityFeatures,
+        onVisibilityChange: (visible) => {
+          chrome.storage.sync.set({ toolbarVisible: visible });
+        },
+        onRestoreAll: async () => {
+          await handleRestoreAllRequest();
+        },
+        onTranslate: async () => {
+          const settings = await new Promise((resolve) => {
+            chrome.storage.sync.get(['sourceLanguage', 'targetLanguage', 'translationMode'], resolve);
+          });
+          sourceLanguage = settings.sourceLanguage || sourceLanguage || 'auto';
+          targetLanguage = settings.targetLanguage || targetLanguage || 'zh-CN';
+          translationMode = settings.translationMode || translationMode;
+          await handleTranslateRequest({
+            sourceLanguage,
+            targetLanguage,
+            translationMode,
+            forceRefresh: isTranslated
+          });
+        },
+        onRestoreTranslation: async () => {
+          if (translationMode === TRANSLATION_MODES.BILINGUAL) {
+            await handleToggleBilingualView();
+          } else if (isTranslated) {
+            await handleRestoreRequest();
+          } else if (translationRenderer.translationCache.size > 0) {
+            const settings = await new Promise((resolve) => {
+              chrome.storage.sync.get(['sourceLanguage', 'targetLanguage', 'translationMode'], resolve);
+            });
+            sourceLanguage = settings.sourceLanguage || sourceLanguage || 'auto';
+            targetLanguage = settings.targetLanguage || targetLanguage || 'zh-CN';
+            translationMode = settings.translationMode || translationMode;
+            await handleTranslateRequest({ sourceLanguage, targetLanguage, translationMode });
+          }
+        },
+        getTranslationState: () => ({
+          isTranslated,
+          isTranslating,
+          mode: translationMode,
+          hasCachedTranslations: translationRenderer.translationCache.size > 0,
+          translationVisible: isTranslated && (
+            translationMode !== TRANSLATION_MODES.BILINGUAL ||
+            document.querySelector('.ot-paragraph-bilingual.ot-original-only') === null
+          )
+        })
+      });
+      toolbar.init();
+    }
+
+    setupStorageListener();
     setupMessageListeners();
     setupContextMenu();
 
@@ -98,6 +181,7 @@ async function loadUserPreferences() {
       'smartContentEnabled',
       'inputFieldListenerEnabled',
       'useFreeMode',
+      'accessibilityEnabled',
       'dyslexicFont',
       'chineseFont',
       'bionicReading',
@@ -108,7 +192,6 @@ async function loadUserPreferences() {
       'wordSpacing',
       'letterSpacing',
       'fontSize',
-      'accessibilityEnabled',
       'autoTranslate',
       'sourceLanguage',
       'targetLanguage'
@@ -120,26 +203,21 @@ async function loadUserPreferences() {
       sourceLanguage = result.sourceLanguage || 'auto';
       targetLanguage = result.targetLanguage || 'zh-CN';
 
-      // Apply accessibility features (master toggle off = explicit disable only)
+      // Apply accessibility features based on individual flags
       if (accessibilityFeatures) {
-        console.log('[ND Translate] accessibilityEnabled=%s, sentenceBreak=%s',
-          result.accessibilityEnabled, result.sentenceBreak);
-        if (result.accessibilityEnabled !== false) {
-          accessibilityFeatures.init({
-            dyslexicFont: result.dyslexicFont,
-            chineseFont: result.chineseFont,
-            bionicReading: result.bionicReading,
-            bionicBoldRatio: result.bionicBoldRatio,
-            bionicDimNonBold: result.bionicDimNonBold,
-            sentenceBreak: result.sentenceBreak,
-            lineSpacing: result.lineSpacing,
-            wordSpacing: result.wordSpacing,
-            letterSpacing: result.letterSpacing,
-            fontSize: result.fontSize
-          });
-        } else {
-          accessibilityFeatures.cleanup();
-        }
+        accessibilityFeatures.init({
+          accessibilityEnabled: result.accessibilityEnabled,
+          dyslexicFont: result.dyslexicFont,
+          chineseFont: result.chineseFont,
+          bionicReading: result.bionicReading,
+          bionicBoldRatio: result.bionicBoldRatio,
+          bionicDimNonBold: result.bionicDimNonBold,
+          sentenceBreak: result.sentenceBreak,
+          lineSpacing: result.lineSpacing,
+          wordSpacing: result.wordSpacing,
+          letterSpacing: result.letterSpacing,
+          fontSize: result.fontSize
+        });
       }
 
       translationRenderer.setMode(translationMode);
@@ -222,6 +300,65 @@ let messageListenersSetup = false;
 /**
  * Set up message listeners for communication with popup/background
  */
+function setupStorageListener() {
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== 'sync') return;
+    // Keep the in-page toolbar aligned with language and mode changes made in
+    // the popup/options page. Without this, its retranslate action can reuse
+    // the values captured when the content script first loaded.
+    if (changes.sourceLanguage) sourceLanguage = changes.sourceLanguage.newValue || 'auto';
+    if (changes.targetLanguage) targetLanguage = changes.targetLanguage.newValue || 'zh-CN';
+    if (changes.translationMode) {
+      translationMode = changes.translationMode.newValue || TRANSLATION_MODES.REPLACE;
+      translationRenderer.setMode(translationMode);
+    }
+    if (changes.accessibilityEnabled && changes.accessibilityEnabled.newValue === false && accessibilityFeatures) {
+      accessibilityFeatures.cleanup();
+      Object.assign(accessibilityFeatures.state, {
+        enabled: false,
+        dyslexicFont: false,
+        chineseFont: false,
+        bionicReading: false,
+        bionicDimNonBold: false,
+        sentenceBreak: false,
+        bionicBoldRatio: 0.5,
+        lineSpacing: 1.5,
+        wordSpacing: 0.08,
+        letterSpacing: 0.02,
+        fontSize: 1.0
+      });
+    }
+    // Toolbar visibility
+    if (changes.toolbarVisible && toolbar) {
+      if (changes.toolbarVisible.newValue) {
+        toolbar.show();
+      } else {
+        toolbar.hide();
+      }
+    }
+    // Reading guide settings from options
+    if (changes.readingGuideSpeed && readingGuide) {
+      readingGuide.setSpeed(changes.readingGuideSpeed.newValue);
+      if (toolbar) {
+        if (toolbar._speedSlider) toolbar._speedSlider.value = changes.readingGuideSpeed.newValue;
+        if (typeof toolbar._updateSpeedLabel === 'function') toolbar._updateSpeedLabel(changes.readingGuideSpeed.newValue);
+      }
+    }
+    if (changes.readingGuideMuted && readingGuide) {
+      readingGuide.setMuted(changes.readingGuideMuted.newValue);
+      if (toolbar && toolbar._mutedBtn) toolbar._updateToggle(toolbar._mutedBtn, changes.readingGuideMuted.newValue);
+    }
+    if (changes.readingGuideMaskEnabled && readingGuide) {
+      readingGuide.setMaskEnabled(changes.readingGuideMaskEnabled.newValue);
+      if (toolbar && toolbar._maskBtn) toolbar._updateToggle(toolbar._maskBtn, changes.readingGuideMaskEnabled.newValue);
+    }
+    // Accessibility settings
+    if (toolbar && toolbar._updateFromStorage) {
+      toolbar._updateFromStorage(changes);
+    }
+  });
+}
+
 function setupMessageListeners() {
   if (messageListenersSetup) return;
 
@@ -294,6 +431,76 @@ async function handleMessage(message, sender, sendResponse) {
         sendResponse({ success: true });
         break;
 
+      case 'readingGuideStart':
+        if (readingGuide) {
+          await readingGuide.start({
+            speed: message.speed,
+            muted: message.muted,
+            maskEnabled: message.maskEnabled
+          });
+        }
+        sendResponse({ success: true });
+        break;
+
+      case 'readingGuidePause':
+        if (readingGuide) readingGuide.pause();
+        sendResponse({ success: true });
+        break;
+
+      case 'readingGuideResume':
+        if (readingGuide) readingGuide.resume();
+        sendResponse({ success: true });
+        break;
+
+      case 'readingGuideStop':
+        if (readingGuide) readingGuide.stop();
+        sendResponse({ success: true });
+        break;
+
+      case 'readingGuideSeek':
+        if (readingGuide) readingGuide.enterSeekMode();
+        sendResponse({ success: true });
+        break;
+
+      case 'toggleToolbar':
+        if (toolbar) {
+          if (message.visible) {
+            toolbar.show();
+          } else {
+            toolbar.hide();
+          }
+        }
+        sendResponse({ success: true });
+        break;
+
+      case 'restoreAll':
+        await handleRestoreAllRequest();
+        sendResponse({ success: true });
+        break;
+
+      case 'readingGuideSetSpeed':
+        if (readingGuide) readingGuide.setSpeed(message.speed);
+        sendResponse({ success: true });
+        break;
+
+      case 'readingGuideSetMuted':
+        if (readingGuide) readingGuide.setMuted(message.muted);
+        sendResponse({ success: true });
+        break;
+
+      case 'readingGuideSetMask':
+        if (readingGuide) readingGuide.setMaskEnabled(message.enabled);
+        sendResponse({ success: true });
+        break;
+
+      case 'readingGuideGetStatus':
+        sendResponse({
+          success: true,
+          state: readingGuide ? readingGuide.getState() : 'idle',
+          currentIndex: readingGuide ? readingGuide.getCurrentSentenceIndex() : -1
+        });
+        break;
+
       case 'updateAccessibility':
         if (accessibilityFeatures) {
           suppressObserver = true;
@@ -301,12 +508,13 @@ async function handleMessage(message, sender, sendResponse) {
             if (message.value) {
               // Re-read full config from storage and apply
               chrome.storage.sync.get([
-                'dyslexicFont', 'chineseFont', 'bionicReading', 'bionicBoldRatio',
+                'accessibilityEnabled', 'dyslexicFont', 'chineseFont', 'bionicReading', 'bionicBoldRatio',
                 'bionicDimNonBold', 'sentenceBreak', 'lineSpacing', 'wordSpacing',
                 'letterSpacing', 'fontSize'
               ], (result) => {
                 try {
                   accessibilityFeatures.init({
+                    accessibilityEnabled: result.accessibilityEnabled,
                     dyslexicFont: result.dyslexicFont,
                     chineseFont: result.chineseFont,
                     bionicReading: result.bionicReading,
@@ -1078,6 +1286,9 @@ function setupLinkClickHandler() {
  */
 function notifyStatusChange(status, data = null) {
   try {
+    if (toolbar && typeof toolbar._updateTranslationControls === 'function') {
+      toolbar._updateTranslationControls();
+    }
     // Check if extension context is still valid
     if (!chrome.runtime || !chrome.runtime.sendMessage) {
       return;
@@ -1119,6 +1330,71 @@ function setupContentObserver() {
 }
 
 /**
+ * Restore everything — translations, accessibility, reading guide, toolbar.
+ * One-click "restore original page" handler.
+ */
+async function handleRestoreAllRequest() {
+  // 1. Cancel any ongoing translation
+  translationCancelled = true;
+  isTranslating = false;
+
+  // 2. Restore original text
+  if (isTranslated) {
+    translationRenderer.restoreOriginalText();
+    isTranslated = false;
+    currentTextNodes = [];
+    currentTranslations = [];
+  }
+
+  // 3. Stop reading guide
+  if (readingGuide) {
+    try { readingGuide.stop(); } catch (e) { /* ignore */ }
+  }
+
+  // 4. Remove every accessibility style/wrapper instead of applying default
+  // spacing values again. "Clear" must leave the page without plugin formatting.
+  if (accessibilityFeatures) {
+    suppressObserver = true;
+    try {
+      accessibilityFeatures.cleanup();
+      Object.assign(accessibilityFeatures.state, {
+        enabled: false,
+        dyslexicFont: false,
+        chineseFont: false,
+        bionicReading: false,
+        bionicBoldRatio: 0.5,
+        bionicDimNonBold: false,
+        sentenceBreak: false,
+        lineSpacing: 1.5,
+        wordSpacing: 0.08,
+        letterSpacing: 0.02,
+        fontSize: 1.0
+      });
+    } catch (e) { /* ignore */ }
+    suppressObserver = false;
+  }
+
+  // 5. Persist all resets to storage (toolbar stays visible)
+  const resetConfig = {
+    readingGuideSpeed: 3.0,
+    readingGuideMuted: false,
+    readingGuideMaskEnabled: true,
+    accessibilityEnabled: false,
+    dyslexicFont: false,
+    chineseFont: false,
+    bionicReading: false,
+    bionicBoldRatio: 0.5,
+    bionicDimNonBold: false,
+    sentenceBreak: false,
+    lineSpacing: 1.5,
+    wordSpacing: 0.08,
+    letterSpacing: 0.02,
+    fontSize: 1.0
+  };
+  chrome.storage.sync.set(resetConfig);
+}
+
+/**
  * Clean up resources
  */
 function cleanup() {
@@ -1126,6 +1402,11 @@ function cleanup() {
   if (translationMode === TRANSLATION_MODES.CLICK_TO_TRANSLATE) {
     translationRenderer.cleanupClickToTranslateMode();
     clickableParagraphGroups = [];
+  }
+
+  // Clean up reading aloud
+  if (readingGuide) {
+    readingGuide.cleanup();
   }
 
   // Clean up accessibility features
@@ -1471,4 +1752,3 @@ async function performIncrementalTranslation(paragraphGroups) {
     isTranslating = false;
   }
 }
-

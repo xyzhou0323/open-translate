@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_extensionName__",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "__MSG_extensionDescription__",
   "author": "XyZ",
   "homepage_url": "https://github.com/xyzhou0323/open-translate",
@@ -39,6 +39,8 @@
         "src/core/freeTranslator.js",
         "src/core/translationCorrector.js",
         "src/core/accessibilityFeatures.js",
+        "src/core/readingGuide.js",
+        "src/core/toolbar.js",
         "src/core/translator.js",
         "src/core/inputFieldListener.js",
         "src/content/content.js"

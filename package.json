@@ -1,6 +1,6 @@
 {
   "name": "nd-translate",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Web page translation extension with neurodiversity terminology glossary, compatible with OpenAI-compatible API. Supports Edge/Chrome.",
   "author": "XyZ",
   "main": "src/background/background.js",
@@ -43,7 +43,7 @@
   },
   "manifest": {
     "version": 3,
-    "name": "Open Translate",
+    "name": "ND Translate",
     "description": "A powerful web page translation extension with OpenAI API compatibility"
   },
   "chrome-extension": {
