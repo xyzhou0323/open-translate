@@ -1,6 +1,6 @@
 {
   "name": "nd-translate",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Web page translation extension with neurodiversity terminology glossary, compatible with OpenAI-compatible API. Supports Edge/Chrome.",
   "author": "XyZ",
   "main": "src/background/background.js",
@@ -29,12 +29,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/sxueck/open-translate.git"
+    "url": "https://github.com/xyzhou0323/open-translate.git"
   },
   "bugs": {
-    "url": "https://github.com/sxueck/open-translate/issues"
+    "url": "https://github.com/xyzhou0323/open-translate/issues"
   },
-  "homepage": "https://github.com/sxueck/open-translate#readme",
+  "homepage": "https://github.com/xyzhou0323/open-translate#readme",
   "engines": {
     "node": ">=14.0.0"
   },

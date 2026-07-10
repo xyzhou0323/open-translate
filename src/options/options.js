@@ -11,6 +11,9 @@ const elements = {};
  */
 async function initialize() {
   try {
+    await I18n.init();
+    I18n.localizePage();
+
     // Get DOM elements
     initializeElements();
 
@@ -138,6 +141,9 @@ function initializeElements() {
   elements.readingGuideMuted = document.getElementById('readingGuideMuted');
   elements.readingGuideMaskEnabled = document.getElementById('readingGuideMaskEnabled');
 
+  // Interface language
+  elements.uiLanguage = document.getElementById('uiLanguage');
+
   // Actions
   elements.saveSettings = document.getElementById('saveSettings');
   elements.resetSettings = document.getElementById('resetSettings');
@@ -243,6 +249,11 @@ async function loadSettings() {
     elements.readingGuideMuted.checked = config.readingGuideMuted === true;
     elements.readingGuideMaskEnabled.checked = config.readingGuideMaskEnabled !== false; // Default to true
 
+    // UI language
+    if (elements.uiLanguage) {
+      elements.uiLanguage.value = I18n.getLanguage();
+    }
+
     // Update model selection UI
     updateModelSelectionUI();
 
@@ -279,6 +290,14 @@ function setupEventListeners() {
   // Save settings
   elements.saveSettings.addEventListener('click', saveSettings);
   
+  // UI language switch
+  if (elements.uiLanguage) {
+    elements.uiLanguage.addEventListener('change', async (e) => {
+      await I18n.setLanguage(e.target.value);
+      location.reload();
+    });
+  }
+
   // Reset settings
   elements.resetSettings.addEventListener('click', resetSettings);
   elements.clearAccessibilityFormats.addEventListener('click', clearAccessibilityFormats);
@@ -381,11 +400,13 @@ function updateAccessibilityStatus(enabled) {
   elements.accessibilityStatus.classList.toggle('is-cleared', !enabled);
   const title = elements.accessibilityStatus.querySelector('strong');
   const description = elements.accessibilityStatus.querySelector('p');
-  if (title) title.textContent = enabled ? '页面格式增强：已开启' : '页面格式增强：已清除';
+  if (title) title.textContent = enabled
+    ? (I18n.getMessage('options_format_enabled') || '页面格式增强：已开启')
+    : (I18n.getMessage('options_format_disabled') || '页面格式增强：已清除');
   if (description) {
     description.textContent = enabled
-      ? '保存后会在新页面应用下方的阅读格式设置。'
-      : '新页面将保持网站原有格式；调整任一阅读格式并保存即可重新开启。';
+      ? (I18n.getMessage('options_format_desc_enabled') || '保存后会在新页面应用下方的阅读格式设置。')
+      : (I18n.getMessage('options_format_desc_disabled') || '新页面将保持网站原有格式；调整任一阅读格式并保存即可重新开启。');
   }
 }
 
@@ -423,7 +444,7 @@ async function clearAccessibilityFormats() {
     syncBionicSubSettings();
     updateAccessibilityStatus(false);
     updatePreview();
-    showStatusMessage('已清除阅读格式，新页面将保持原有样式。', 'success');
+    showStatusMessage(I18n.getMessage('options_format_cleared') || '已清除阅读格式，新页面将保持原有样式。', 'success');
   } catch (error) {
     errorHandler.handle(error, 'options-clear-accessibility-formats');
     showStatusMessage(ERROR_MESSAGES.TRANSLATION_FAILED, 'error');
@@ -471,7 +492,7 @@ async function testApiConnection() {
 
   try {
     testBtn.disabled = true;
-    testBtn.innerHTML = '<span>测试中...</span>';
+    testBtn.innerHTML = '<span>' + (I18n.getMessage('options_testing') || '测试中...') + '</span>';
     testResult.classList.add('hidden');
 
     const config = collectApiConfig();
@@ -522,17 +543,18 @@ Translation:`
     }
 
     testResult.className = 'test-result success';
-    testResult.textContent = '连接成功！API 工作正常。';
+    testResult.textContent = I18n.getMessage('options_test_success') || '连接成功！API 工作正常。';
     testResult.classList.remove('hidden');
 
   } catch (error) {
     errorHandler.handle(error, 'options-test-connection');
     testResult.className = 'test-result error';
-    testResult.textContent = `连接失败：${formatError(error)}`;
+    testResult.textContent = (I18n.getMessage('options_test_failed') || '连接失败：{ERROR}')
+      .replace('{ERROR}', formatError(error));
     testResult.classList.remove('hidden');
   } finally {
     testBtn.disabled = false;
-    testBtn.textContent = '测试连接';
+    testBtn.textContent = I18n.getMessage('options_test_connection') || '测试连接';
   }
 }
 
@@ -545,18 +567,18 @@ function updateModelSelectionUI() {
 
   if (customModelValue) {
     // Custom model has priority
-    elements.modelPriorityIndicator.textContent = '（生效中）';
+    elements.modelPriorityIndicator.textContent = I18n.getMessage('options_custom_model_active') || '（生效中）';
     elements.modelPriorityIndicator.className = 'priority-indicator active';
     elements.customModel.classList.add('active');
     elements.model.classList.add('inactive');
-    elements.modelHelp.textContent = `正在使用自定义模型："${customModelValue}"（覆盖下拉选择）`;
+    elements.modelHelp.textContent = (I18n.getMessage('options_custom_model_active_help') || 'Using custom model: "{MODEL}" (overrides dropdown selection)').replace('{MODEL}', customModelValue);
   } else {
     // Using dropdown selection
-    elements.modelPriorityIndicator.textContent = '（未生效）';
+    elements.modelPriorityIndicator.textContent = I18n.getMessage('options_custom_model_inactive') || '（未生效）';
     elements.modelPriorityIndicator.className = 'priority-indicator inactive';
     elements.customModel.classList.remove('active');
     elements.model.classList.remove('inactive');
-    elements.modelHelp.textContent = `正在使用所选模型："${selectedModel}"（输入自定义模型名可覆盖）`;
+    elements.modelHelp.textContent = (I18n.getMessage('options_custom_model_inactive_help') || 'Using selected model: "{MODEL}" (enter a custom model name to override)').replace('{MODEL}', selectedModel);
   }
 }
 
@@ -596,12 +618,12 @@ async function loadAvailableModels() {
       }
     } else {
       // Show empty state with instruction
-      modelSelect.innerHTML = '<option value="">请先配置 API 设置并刷新模型列表</option>';
+      modelSelect.innerHTML = '<option value="">' + (I18n.getMessage('options_model_placeholder') || '请先配置 API 设置并刷新模型列表') + '</option>';
     }
 
   } catch (error) {
     console.warn('Failed to load models:', error);
-    modelSelect.innerHTML = '<option value="">加载模型列表失败</option>';
+    modelSelect.innerHTML = '<option value="">' + (I18n.getMessage('options_model_load_failed') || '加载模型列表失败') + '</option>';
   }
 }
 
@@ -622,7 +644,7 @@ function populateModelSelect(models) {
   } else {
     const option = document.createElement('option');
     option.value = '';
-    option.textContent = '无可用模型';
+    option.textContent = I18n.getMessage('options_no_models') || '无可用模型';
     modelSelect.appendChild(option);
   }
 }
@@ -674,7 +696,7 @@ async function refreshAvailableModels() {
 
   try {
     refreshBtn.disabled = true;
-    refreshBtn.textContent = '加载中...';
+    refreshBtn.textContent = I18n.getMessage('options_loading_models') || '加载中...';
 
     // Get API configuration for model fetching
     const apiUrl = elements.apiUrl.value.trim();
@@ -701,14 +723,15 @@ async function refreshAvailableModels() {
       modelSelect.value = currentValue;
     }
 
-    showStatusMessage('模型列表刷新成功！', 'success');
+    showStatusMessage(I18n.getMessage('options_models_success') || '模型列表刷新成功！', 'success');
 
   } catch (error) {
     errorHandler.handle(error, 'options-refresh-models');
-    showStatusMessage(`刷新模型失败：${formatError(error)}`, 'error');
+    showStatusMessage((I18n.getMessage('options_models_failed') || '刷新模型失败：{ERROR}')
+      .replace('{ERROR}', formatError(error)), 'error');
   } finally {
     refreshBtn.disabled = false;
-    refreshBtn.textContent = '刷新模型';
+    refreshBtn.textContent = I18n.getMessage('options_refresh_models') || '刷新模型';
   }
 }
 
@@ -798,11 +821,11 @@ async function saveSettings() {
 
     await configManager.saveConfig(settings);
     updateAccessibilityStatus(settings.accessibilityEnabled);
-    showStatusMessage('设置保存成功！', 'success');
+    showStatusMessage(I18n.getMessage('options_save_success') || '设置保存成功！', 'success');
 
   } catch (error) {
     errorHandler.handle(error, 'options-save-settings');
-    showStatusMessage(ERROR_MESSAGES.TRANSLATION_FAILED, 'error');
+    showStatusMessage(I18n.getMessage('options_save_error') || ERROR_MESSAGES.TRANSLATION_FAILED, 'error');
   }
 }
 
@@ -810,18 +833,18 @@ async function saveSettings() {
  * Reset settings to defaults
  */
 async function resetSettings() {
-  if (!confirm('确定要恢复所有设置为默认值吗？此操作不可撤销。')) {
+  if (!confirm(I18n.getMessage('options_reset_confirm') || '确定要恢复所有设置为默认值吗？此操作不可撤销。')) {
     return;
   }
 
   try {
     await configManager.resetToDefaults();
     await loadSettings();
-    showStatusMessage('设置已恢复为默认值！', 'success');
+    showStatusMessage(I18n.getMessage('options_reset_success') || '设置已恢复为默认值！', 'success');
 
   } catch (error) {
     errorHandler.handle(error, 'options-reset-settings');
-    showStatusMessage(ERROR_MESSAGES.TRANSLATION_FAILED, 'error');
+    showStatusMessage(I18n.getMessage('options_save_error') || ERROR_MESSAGES.TRANSLATION_FAILED, 'error');
   }
 }
 

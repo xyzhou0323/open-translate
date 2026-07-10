@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ND Translate - 设置</title>
+  <title>__MSG_options_title__</title>
   <link rel="stylesheet" href="options.css">
 </head>
 <body>
@@ -12,53 +12,68 @@
     <header class="header">
       <div class="header-content">
         <div class="header-text">
-          <h1>ND Translate 设置</h1>
-          <p>配置翻译偏好和 API 设置</p>
+          <h1>__MSG_options_heading__</h1>
+          <p>__MSG_options_subtitle__</p>
         </div>
       </div>
     </header>
 
     <!-- Main Content -->
     <main class="main-content">
-      <!-- API Configuration Section -->
+      <!-- Interface Language Section -->
       <section class="settings-section">
-        <h2 class="section-title">API 配置</h2>
+        <h2 class="section-title" data-i18n="options_interface_lang">__MSG_options_interface_lang__</h2>
         <div class="section-content">
           <div class="form-group">
-            <label for="apiUrl" class="form-label">API 端点地址</label>
-            <input type="url" id="apiUrl" class="form-input" placeholder="例如：https://api.deepseek.com/v1/chat/completions">
-            <small class="form-help">输入兼容 OpenAI 格式的 API 端点地址。留空时将使用免费 Google 翻译。</small>
+            <select id="uiLanguage" class="form-select" style="max-width:280px;">
+              <option value="auto" data-i18n="options_lang_auto">__MSG_options_lang_auto__</option>
+              <option value="zh-CN" data-i18n="options_lang_zh_cn">__MSG_options_lang_zh_cn__</option>
+              <option value="en" data-i18n="options_lang_en">__MSG_options_lang_en__</option>
+            </select>
+            <small class="form-help" data-i18n="options_interface_lang_help">__MSG_options_interface_lang_help__</small>
+          </div>
+        </div>
+      </section>
+
+      <!-- API Configuration Section -->
+      <section class="settings-section">
+        <h2 class="section-title">__MSG_options_api_config__</h2>
+        <div class="section-content">
+          <div class="form-group">
+            <label for="apiUrl" class="form-label">__MSG_options_api_endpoint__</label>
+            <input type="url" id="apiUrl" class="form-input" placeholder="__MSG_options_api_endpoint_placeholder__">
+            <small class="form-help">__MSG_options_api_endpoint_help__</small>
           </div>
 
           <div class="form-group">
-            <label for="apiKey" class="form-label">API 密钥</label>
+            <label for="apiKey" class="form-label">__MSG_options_api_key__</label>
             <div class="input-group">
-              <input type="password" id="apiKey" class="form-input" placeholder="输入你的 API 密钥">
+              <input type="password" id="apiKey" class="form-input" placeholder="__MSG_options_api_key_placeholder__">
               <button type="button" id="toggleApiKey" class="toggle-btn" title="显示/隐藏 API 密钥">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
                 </svg>
               </button>
             </div>
-            <small class="form-help">API 密钥将安全存储在浏览器同步存储中。留空则自动使用免费 Google 翻译。</small>
+            <small class="form-help">__MSG_options_api_key_help__</small>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label for="model" class="form-label">模型</label>
+              <label for="model" class="form-label">__MSG_options_model__</label>
               <div class="model-selection">
                 <select id="model" class="form-select">
-                  <option value="">请先配置 API</option>
+                  <option value="">__MSG_options_model_placeholder__</option>
                 </select>
-                <button type="button" id="refreshModels" class="refresh-btn" title="刷新可用模型">
-                  刷新模型
+                <button type="button" id="refreshModels" class="refresh-btn" title="__MSG_options_refresh_models__">
+                  __MSG_options_refresh_models__
                 </button>
               </div>
-              <small class="form-help">选择模型，或使用下方的自定义模型名</small>
+              <small class="form-help">__MSG_options_model_help__</small>
             </div>
 
             <div class="form-group">
-              <label for="temperature" class="form-label">温度参数</label>
+              <label for="temperature" class="form-label">__MSG_options_temperature__</label>
               <input type="range" id="temperature" class="form-range" min="0" max="1" step="0.1" value="0.3">
               <span id="temperatureValue" class="range-value">0.3</span>
             </div>
@@ -66,28 +81,28 @@
 
           <div class="form-group">
             <label for="customModel" class="form-label">
-              自定义模型名
+              __MSG_options_custom_model__
               <span class="priority-indicator" id="modelPriorityIndicator"></span>
             </label>
-            <input type="text" id="customModel" class="form-input" placeholder="输入自定义模型名（可选）">
-            <small class="form-help" id="modelHelp">留空则使用上方选择的模型。自定义模型名将覆盖所选模型。</small>
+            <input type="text" id="customModel" class="form-input" placeholder="__MSG_options_custom_model_placeholder__">
+            <small class="form-help" id="modelHelp">__MSG_options_model_help__</small>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label for="maxTokens" class="form-label">最大 Token 数</label>
+              <label for="maxTokens" class="form-label">__MSG_options_max_tokens__</label>
               <input type="number" id="maxTokens" class="form-input" min="1500" max="16000" value="8000">
             </div>
 
             <div class="form-group">
-              <label for="timeout" class="form-label">超时时间（秒）</label>
+              <label for="timeout" class="form-label">__MSG_options_timeout__</label>
               <input type="number" id="timeout" class="form-input" min="5" max="120" value="30">
             </div>
           </div>
 
           <div class="form-group">
             <button type="button" id="testConnection" class="test-btn">
-              测试连接
+              __MSG_options_test_connection__
             </button>
             <div id="testResult" class="test-result hidden"></div>
           </div>
@@ -96,53 +111,53 @@
 
       <!-- Accessibility / Reading Aid Section -->
       <section class="settings-section">
-        <h2 class="section-title">阅读辅助</h2>
+        <h2 class="section-title">__MSG_options_reading_aids__</h2>
         <div class="section-content">
           <div id="accessibilityStatus" class="format-status" role="status" aria-live="polite">
             <div>
-              <strong>页面格式增强：已开启</strong>
-              <p>保存后会在新页面应用下方的阅读格式设置。</p>
+              <strong>__MSG_options_format_enabled__</strong>
+              <p>__MSG_options_format_desc_enabled__</p>
             </div>
-            <button type="button" id="clearAccessibilityFormats" class="secondary-btn">清除并保持关闭</button>
+            <button type="button" id="clearAccessibilityFormats" class="secondary-btn">__MSG_options_clear_disable__</button>
           </div>
 
           <div class="form-group">
             <label class="form-label">
               <input type="checkbox" id="dyslexicFont" class="form-checkbox">
-              OpenDyslexic 字体
+              __MSG_options_dyslexic_font__
             </label>
-            <small class="form-help">将页面英文字体替换为专为阅读障碍设计的 OpenDyslexic 字体，字母底部加重减少翻转错觉。</small>
+            <small class="form-help">__MSG_options_dyslexic_font_help__</small>
           </div>
 
           <div class="form-group">
             <label class="form-label">
               <input type="checkbox" id="chineseFont" class="form-checkbox">
-              霞鹜文楷中文字体
+              __MSG_options_chinese_font__
             </label>
-            <small class="form-help">将页面中文字体替换为霞鹜文楷（LXGW WenKai），字形清晰易辨识，适合阅读障碍人群。字体通过 CDN 加载，需要网络连接。</small>
+            <small class="form-help">__MSG_options_chinese_font_help__</small>
           </div>
 
           <div class="form-group">
             <label class="form-label">
               <input type="checkbox" id="bionicReading" class="form-checkbox">
-              Bionic Reading 引导阅读
+              __MSG_options_bionic_reading__
             </label>
-            <small class="form-help">加粗每个英文单词的前半部分字符，通过视觉锚点引导眼球快速移动。</small>
+            <small class="form-help">__MSG_options_bionic_reading_help__</small>
           </div>
 
-          <div id="bionicSubSettings" class="bionic-sub-settings" aria-label="Bionic 阅读子设置">
+          <div id="bionicSubSettings" class="bionic-sub-settings" aria-label="__MSG_options_bionic_reading__">
             <div class="form-row">
               <div class="form-group">
-                <label for="bionicBoldRatio" class="form-label">加粗比例</label>
+                <label for="bionicBoldRatio" class="form-label">__MSG_options_bold_ratio__</label>
                 <input type="range" id="bionicBoldRatio" class="form-range" min="0.3" max="0.6" step="0.05" value="0.5">
                 <span id="bionicBoldRatioValue" class="range-value">50%</span>
               </div>
               <div class="form-group">
                 <label class="form-label">
                   <input type="checkbox" id="bionicDimNonBold" class="form-checkbox">
-                  降低后半部分不透明度
+                  __MSG_options_dim_non_bold__
                 </label>
-                <small class="form-help">使单词未加粗部分变淡，让视觉锚点更突出</small>
+                <small class="form-help">__MSG_options_dim_help__</small>
               </div>
             </div>
           </div>
@@ -150,66 +165,65 @@
           <div class="form-group">
             <label class="form-label">
               <input type="checkbox" id="sentenceBreak" class="form-checkbox">
-              每句换行
+              __MSG_options_sentence_break__
             </label>
-            <small class="form-help">将页面正文按句号、问号、感叹号等标点拆分为每句一行，减少长段落带来的阅读压力。</small>
+            <small class="form-help">__MSG_options_sentence_break_help__</small>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label for="fontSize" class="form-label">字号</label>
+              <label for="fontSize" class="form-label">__MSG_options_font_size__</label>
               <input type="range" id="fontSize" class="form-range" min="0.8" max="2" step="0.05" value="1">
               <span id="fontSizeValue" class="range-value">1.0 (100%)</span>
             </div>
 
             <div class="form-group">
-              <label for="lineSpacing" class="form-label">行间距</label>
+              <label for="lineSpacing" class="form-label">__MSG_options_line_spacing__</label>
               <input type="range" id="lineSpacing" class="form-range" min="1" max="5" step="0.1" value="1.5">
               <span id="lineSpacingValue" class="range-value">1.5</span>
             </div>
 
             <div class="form-group">
-              <label for="wordSpacing" class="form-label">单词间距</label>
+              <label for="wordSpacing" class="form-label">__MSG_options_word_spacing__</label>
               <input type="range" id="wordSpacing" class="form-range" min="0" max="2" step="0.05" value="0.08">
               <span id="wordSpacingValue" class="range-value">0.08</span>
             </div>
 
             <div class="form-group">
-              <label for="letterSpacing" class="form-label">字间距</label>
+              <label for="letterSpacing" class="form-label">__MSG_options_letter_spacing__</label>
               <input type="range" id="letterSpacing" class="form-range" min="-0.05" max="0.5" step="0.01" value="0.02">
               <span id="letterSpacingValue" class="range-value">0.02</span>
             </div>
           </div>
 
           <div class="form-group">
-            <button type="button" id="resetSpacing" class="secondary-btn" style="width:auto;">恢复推荐排版</button>
-            <small class="form-help">此操作只恢复本页表单的推荐值；如需在新页面完全不改动格式，请使用上方“清除并保持关闭”。</small>
+            <button type="button" id="resetSpacing" class="secondary-btn" style="width:auto;">__MSG_options_reset_spacing__</button>
+            <small class="form-help">__MSG_options_reset_spacing_help__</small>
           </div>
 
-          <!-- 阅读导览预设 -->
           <div class="form-section">
-            <h3 class="form-section-title">阅读导览</h3>
+            <h3 class="form-section-title">__MSG_options_reading_guide__</h3>
             <div class="form-group">
-              <label for="readingGuideSpeed" class="form-label">朗读速度</label>
+              <label for="readingGuideSpeed" class="form-label">__MSG_options_reading_speed__</label>
               <input type="range" id="readingGuideSpeed" class="form-range" min="0.5" max="6.0" step="0.1" value="3.0">
               <span id="readingGuideSpeedValue" class="range-value">3.0x</span>
-              <small class="form-help">文字转语音朗读速度。超过 3 倍速时将自动启用静音模式（仅高亮不朗读）。</small>
+              <small class="form-help">__MSG_options_reading_speed_help__</small>
             </div>
             <div class="form-row">
               <div class="form-group">
                 <label class="form-label">
                   <input type="checkbox" id="readingGuideMuted" class="form-checkbox">
-                  静音模式（仅高亮不朗读）
+                  __MSG_options_muted_mode__
                 </label>
               </div>
               <div class="form-group">
                 <label class="form-label">
                   <input type="checkbox" id="readingGuideMaskEnabled" class="form-checkbox" checked>
-                  阅读遮罩（聚光灯效果）
+                  __MSG_options_reading_mask__
                 </label>
               </div>
             </div>
-            <small class="form-help">阅读导览通过页面底部工具栏控制播放。此处可预设朗读偏好。</small>
+            <small class="form-help">__MSG_options_reading_guide_help__</small>
           </div>
 
           <div id="previewBox" class="preview-box">
@@ -221,26 +235,26 @@
 
       <!-- Advanced Settings Section -->
       <section class="settings-section">
-        <h2 class="section-title">高级设置</h2>
+        <h2 class="section-title">__MSG_options_advanced_settings__</h2>
         <div class="section-content">
           <div class="form-group">
             <label class="form-label">
               <input type="checkbox" id="smartContentEnabled" class="form-checkbox">
-              启用智能内容识别
+              __MSG_options_smart_content__
             </label>
-            <small class="form-help">使用 Mozilla Readability 算法自动识别网页主体内容区域，减少手动配置需求。默认启用，关闭后将使用传统元素识别方法。</small>
+            <small class="form-help">__MSG_options_smart_content_help__</small>
           </div>
 
           <div class="form-group">
             <label class="form-label">
               <input type="checkbox" id="inputFieldListenerEnabled" class="form-checkbox">
-              启用输入框翻译触发
+              __MSG_options_input_field__
             </label>
-            <small class="form-help">启用后，在任意文本输入框中按下快捷键即可触发翻译，翻译结果将显示在输入框附近的弹出窗口中。</small>
+            <small class="form-help">__MSG_options_input_field_help__</small>
           </div>
 
           <div class="form-group">
-            <label for="inputFieldTriggerKey" class="form-label">输入框触发快捷键</label>
+            <label for="inputFieldTriggerKey" class="form-label">__MSG_options_trigger_key__</label>
             <select id="inputFieldTriggerKey" class="form-select">
               <option value="F2">F2</option>
               <option value="F3">F3</option>
@@ -250,11 +264,11 @@
               <option value="F11">F11</option>
               <option value="F12">F12</option>
             </select>
-            <small class="form-help">选择触发输入框翻译的按键。推荐 F2，因为网站很少使用该键。</small>
+            <small class="form-help">__MSG_options_trigger_key_help__</small>
           </div>
 
           <div class="form-group">
-            <label class="form-label">触发键修饰符</label>
+            <label class="form-label">__MSG_options_trigger_modifiers__</label>
             <div style="display: flex; gap: 15px; margin-top: 5px;">
               <label class="form-label">
                 <input type="checkbox" id="inputFieldCtrlKey" class="form-checkbox">
@@ -269,19 +283,19 @@
                 Shift
               </label>
             </div>
-            <small class="form-help">可选的组合键修饰符（例如：Ctrl + F2）。</small>
+            <small class="form-help">__MSG_options_trigger_modifiers_help__</small>
           </div>
 
           <div class="form-group">
             <label class="form-label">
               <input type="checkbox" id="autoDetectPageLanguage" class="form-checkbox">
-              自动检测页面语言用于输入框翻译
+              __MSG_options_auto_detect_lang__
             </label>
-            <small class="form-help">启用后，系统将检测网页的语言，并将输入文本翻译为该语言。例如，在中文网站上，英文输入将被翻译为中文。</small>
+            <small class="form-help">__MSG_options_auto_detect_lang_help__</small>
           </div>
 
           <div class="form-group">
-            <label for="defaultTargetLanguage" class="form-label">默认目标语言</label>
+            <label for="defaultTargetLanguage" class="form-label">__MSG_options_default_target_lang__</label>
             <select id="defaultTargetLanguage" class="form-select">
               <option value="en">English</option>
               <option value="zh-CN">简体中文</option>
@@ -296,58 +310,58 @@
               <option value="it">Italiano</option>
               <option value="ar">العربية</option>
             </select>
-            <small class="form-help">页面语言检测失败或输入语言与页面语言相同时使用的备用语言。</small>
+            <small class="form-help">__MSG_options_default_target_lang_help__</small>
           </div>
 
           <div class="form-group">
-            <label for="excludeSelectors" class="form-label">排除选择器</label>
-            <textarea id="excludeSelectors" class="form-textarea" rows="12" placeholder="正在加载排除选择器..."></textarea>
-            <small class="form-help">显示所有排除选择器。默认排除项显示在顶部，在 "# 用户自定义排除选择器:" 注释行后添加自定义选择器。</small>
+            <label for="excludeSelectors" class="form-label">__MSG_options_exclude_selectors__</label>
+            <textarea id="excludeSelectors" class="form-textarea" rows="12" placeholder="__MSG_options_exclude_selectors_placeholder__"></textarea>
+            <small class="form-help">__MSG_options_exclude_selectors_help__</small>
           </div>
 
           <div class="form-group">
-            <label for="batchSize" class="form-label">并发翻译数</label>
+            <label for="batchSize" class="form-label">__MSG_options_concurrency__</label>
             <input type="number" id="batchSize" class="form-input" min="1" max="20" value="5">
-            <small class="form-help">同时翻译的段落数量（值越大翻译越快，但 API 调用越密集）</small>
+            <small class="form-help">__MSG_options_concurrency_help__</small>
           </div>
 
           <div class="form-group">
-            <label for="retryAttempts" class="form-label">重试次数</label>
+            <label for="retryAttempts" class="form-label">__MSG_options_retry__</label>
             <input type="number" id="retryAttempts" class="form-input" min="0" max="5" value="2">
-            <small class="form-help">翻译失败时的重试次数</small>
+            <small class="form-help">__MSG_options_retry_help__</small>
           </div>
 
           <!-- Smart Batching Configuration -->
           <div class="form-section">
-            <h3 class="form-section-title">智能批处理优化</h3>
+            <h3 class="form-section-title">__MSG_options_smart_batching__</h3>
 
             <div class="form-group">
               <label class="form-label">
                 <input type="checkbox" id="enableSmartBatching" class="form-checkbox">
-                启用智能批处理
+                __MSG_options_smart_batching_enable__
               </label>
-              <small class="form-help">使用基于 token 的智能批处理，最小化 API 调用次数并最大化效率。关闭后可实现逐段翻译、逐段显示。</small>
+              <small class="form-help">__MSG_options_smart_batching_help__</small>
             </div>
           </div>
 
           <!-- Glossary Configuration -->
           <div class="form-section">
-            <h3 class="form-section-title">术语表</h3>
+            <h3 class="form-section-title">__MSG_options_glossary__</h3>
 
             <div class="form-group">
               <label class="form-label">
                 <input type="checkbox" id="enableGlossary" class="form-checkbox">
-                启用内置术语表
+                __MSG_options_glossary_enable__
               </label>
-              <small class="form-help">强制 LLM 对神经多样性术语使用标准化中文翻译（如 "Neurodiversity" → "神经多样性"、"Stimming" → "调节行为"）</small>
+              <small class="form-help">__MSG_options_glossary_help__</small>
             </div>
 
             <div class="form-group">
               <label class="form-label">
                 <input type="checkbox" id="enableCorrection" class="form-checkbox">
-                启用后处理术语修正
+                __MSG_options_correction_enable__
               </label>
-              <small class="form-help">翻译完成后在本地对译文进行术语替换修正（如将"自闭症"修正为"孤独谱系"）。适用于无法注入术语表的免费翻译接口。</small>
+              <small class="form-help">__MSG_options_correction_help__</small>
             </div>
           </div>
         </div>
@@ -358,13 +372,13 @@
     <!-- Footer -->
     <footer class="footer">
       <div class="footer-actions">
-        <button type="button" id="resetSettings" class="secondary-btn">恢复默认设置</button>
+        <button type="button" id="resetSettings" class="secondary-btn">__MSG_options_reset__</button>
         <div class="primary-actions">
-          <button type="button" id="saveSettings" class="primary-btn">保存设置</button>
+          <button type="button" id="saveSettings" class="primary-btn">__MSG_options_save__</button>
         </div>
       </div>
       <div class="footer-info">
-        <p>ND Translate v1.0.0 - 内置神经多样性术语表的网页翻译扩展</p>
+        <p>ND Translate v1.1.0</p>
       </div>
     </footer>
 
@@ -381,6 +395,7 @@
   <script src="../shared/config.js"></script>
   <script src="../shared/utils.js"></script>
   <script src="../shared/errorHandler.js"></script>
+  <script src="../shared/i18n.js"></script>
   <script src="../core/translator.js"></script>
   <script src="options.js"></script>
 </body>

@@ -1,432 +1,180 @@
 {
-  "extensionName": {
-    "message": "ND Translate",
-    "description": "扩展名称"
-  },
-  "extensionDescription": {
-    "message": "网页翻译扩展，内置神经多样性术语标准化翻译，兼容 OpenAI 兼容 API。支持替换/双语模式、逐段渐进渲染、术语表强制一致翻译。",
-    "description": "扩展描述"
-  },
+  "extensionName": { "message": "ND Translate" },
+  "extensionDescription": { "message": "网页翻译扩展，内置神经多样性术语标准化翻译，兼容 OpenAI 兼容 API。支持替换/双语/点击翻译三种模式、免费 Google + LLM 双引擎、内置 ND 术语表，以及 OpenDyslexic 字体、Bionic Reading、每句换行等阅读辅助功能。" },
 
-  "popup_title": {
-    "message": "ND Translate",
-    "description": "弹窗标题"
-  },
-  "popup_ready_to_translate": {
-    "message": "准备翻译",
-    "description": "准备状态文本"
-  },
-  "popup_translating": {
-    "message": "翻译中...",
-    "description": "翻译进行中状态文本"
-  },
-  "popup_translated": {
-    "message": "页面翻译成功",
-    "description": "翻译成功状态文本"
-  },
-  "popup_error": {
-    "message": "翻译失败",
-    "description": "翻译失败状态文本"
-  },
+  "popup_ready": { "message": "就绪" },
+  "popup_translating": { "message": "正在翻译页面..." },
+  "popup_pausing": { "message": "正在暂停..." },
+  "popup_translated": { "message": "页面翻译完成" },
+  "popup_translation_paused": { "message": "翻译已暂停" },
+  "popup_restored": { "message": "原文已恢复" },
+  "popup_webpage_restored": { "message": "已恢复原网页" },
+  "popup_restoring": { "message": "正在恢复原文..." },
+  "popup_restoring_webpage": { "message": "正在恢复原网页..." },
+  "popup_unavailable": { "message": "此页面不可翻译" },
+  "popup_error": { "message": "翻译失败" },
+  "popup_reload_extension": { "message": "扩展需要重新加载" },
 
-  "popup_source_language": {
-    "message": "源语言：",
-    "description": "源语言选择标签"
-  },
-  "popup_target_language": {
-    "message": "目标语言：",
-    "description": "目标语言选择标签"
-  },
-  "popup_translation_mode": {
-    "message": "翻译模式：",
-    "description": "翻译模式选择标签"
-  },
-  "popup_mode_replace": {
-    "message": "替换",
-    "description": "替换模式选项"
-  },
-  "popup_mode_bilingual": {
-    "message": "段落双语",
-    "description": "双语模式选项"
-  },
+  "popup_mode_replace": { "message": "自动替换" },
+  "popup_mode_bilingual": { "message": "自动双语" },
+  "popup_mode_click": { "message": "手动段落" },
 
-  "popup_translate_page": {
-    "message": "翻译页面",
-    "description": "翻译按钮文本"
-  },
-  "popup_restore_original": {
-    "message": "恢复原文",
-    "description": "恢复按钮文本"
-  },
-  "popup_auto_translate": {
-    "message": "自动翻译新页面",
-    "description": "自动翻译复选框标签"
-  },
-  "popup_input_field_translation": {
-    "message": "输入框翻译",
-    "description": "输入框翻译复选框标签"
-  },
-  "popup_advanced_settings": {
-    "message": "高级设置",
-    "description": "高级设置按钮文本"
-  },
+  "popup_translate_page": { "message": "翻译页面" },
+  "popup_pause_translation": { "message": "暂停翻译" },
+  "popup_retranslate": { "message": "重新翻译" },
+  "popup_restore_original": { "message": "恢复原文" },
+  "popup_show_translation": { "message": "显示翻译" },
+  "popup_original_only": { "message": "仅显示原文" },
+  "popup_restore_webpage": { "message": "恢复原网页" },
+  "popup_auto_translate": { "message": "自动翻译新页面" },
+  "popup_show_toolbar": { "message": "页面显示工具栏" },
+  "popup_advanced_settings": { "message": "高级设置" },
 
-  "options_title": {
-    "message": "ND Translate 设置",
-    "description": "设置页面标题"
-  },
-  "options_subtitle": {
-    "message": "配置您的翻译偏好和 API 设置",
-    "description": "设置页面副标题"
-  },
+  "popup_engine_free": { "message": "免费" },
+  "popup_engine_free_tip": { "message": "免费翻译由 Google 提供，效果可能不如 LLM API 精准" },
+  "popup_engine_llm": { "message": "LLM" },
+  "popup_engine_llm_tip": { "message": "需先在高级设置中配置 API 密钥" },
 
-  "options_api_configuration": {
-    "message": "API配置",
-    "description": "API配置部分标题"
-  },
-  "options_api_endpoint": {
-    "message": "API 端点 URL",
-    "description": "API 端点标签"
-  },
-  "options_api_endpoint_placeholder": {
-    "message": "https://api.openai.com/v1/chat/completions",
-    "description": "API 端点占位符"
-  },
-  "options_api_endpoint_help": {
-    "message": "输入兼容 OpenAI 的 API 端点 URL",
-    "description": "API 端点帮助文本"
-  },
-  "options_api_key": {
-    "message": "API 密钥",
-    "description": "API 密钥标签"
-  },
-  "options_api_key_placeholder": {
-    "message": "输入您的 API 密钥",
-    "description": "API 密钥占位符"
-  },
-  "options_api_key_help": {
-    "message": "您的 API 密钥将安全存储在浏览器的本地存储中",
-    "description": "API 密钥帮助文本"
-  },
-  "options_model": {
-    "message": "模型",
-    "description": "模型选择标签"
-  },
-  "options_custom_model": {
-    "message": "自定义模型",
-    "description": "自定义模型标签"
-  },
-  "options_custom_model_placeholder": {
-    "message": "输入自定义模型名称",
-    "description": "自定义模型占位符"
-  },
-  "options_custom_model_help": {
-    "message": "自定义模型名称（覆盖下拉选择）",
-    "description": "自定义模型帮助文本"
-  },
-  "options_temperature": {
-    "message": "温度",
-    "description": "温度设置标签"
-  },
-  "options_temperature_help": {
-    "message": "控制翻译的随机性（0.0 = 确定性，1.0 = 创造性）",
-    "description": "温度帮助文本"
-  },
-  "options_max_tokens": {
-    "message": "最大令牌数",
-    "description": "最大令牌数标签"
-  },
-  "options_max_tokens_help": {
-    "message": "响应中的最大令牌数",
-    "description": "最大令牌数帮助文本"
-  },
-  "options_timeout": {
-    "message": "超时时间（秒）",
-    "description": "超时设置标签"
-  },
-  "options_timeout_help": {
-    "message": "请求超时时间（秒）",
-    "description": "超时帮助文本"
-  },
+  "popup_switched_replace": { "message": "已切换至替换模式" },
+  "popup_switched_bilingual": { "message": "已切换至双语模式" },
+  "popup_mode_switch_failed": { "message": "切换模式失败" },
+  "popup_comm_failed": { "message": "与页面通信失败" },
+  "popup_context_invalidated": { "message": "扩展上下文已失效，请重新加载扩展。" },
+  "popup_script_unavailable": { "message": "内容脚本不可用，请刷新页面后重试。" },
+  "popup_generic_fail": { "message": "翻译失败" },
+  "popup_restore_fail": { "message": "恢复原文失败" },
+  "popup_restore_webpage_fail": { "message": "恢复原网页失败" },
+  "popup_page_not_supported": { "message": "此页面不支持此操作" },
+  "popup_init_failed": { "message": "扩展初始化失败" },
 
-  "options_translation_settings": {
-    "message": "翻译设置",
-    "description": "翻译设置部分标题"
-  },
-  "options_default_source_language": {
-    "message": "默认源语言",
-    "description": "默认源语言标签"
-  },
-  "options_default_target_language": {
-    "message": "默认目标语言",
-    "description": "默认目标语言标签"
-  },
-  "options_auto_detect_language": {
-    "message": "自动检测页面语言",
-    "description": "自动检测语言复选框标签"
-  },
+  "options_title": { "message": "ND Translate - 设置" },
+  "options_heading": { "message": "ND Translate 设置" },
+  "options_subtitle": { "message": "配置翻译偏好和 API 设置" },
 
-  "options_advanced_settings": {
-    "message": "高级设置",
-    "description": "高级设置部分标题"
-  },
-  "options_smart_content_enabled": {
-    "message": "智能内容提取",
-    "description": "智能内容提取复选框标签"
-  },
-  "options_input_field_enabled": {
-    "message": "输入框翻译",
-    "description": "输入框翻译复选框标签"
-  },
-  "options_input_field_trigger_key": {
-    "message": "输入框触发键",
-    "description": "输入框触发键标签"
-  },
-  "options_input_field_trigger_key_help": {
-    "message": "选择在输入框中触发翻译的按键。推荐使用F2，因为网站较少使用此键",
-    "description": "输入框触发键帮助文本"
-  },
-  "options_smart_content_enabled_help": {
-    "message": "使用 Mozilla Readability 算法自动识别网页的主要内容区域，减少手动配置的需要。默认启用。禁用时将使用传统的元素识别方法",
-    "description": "智能内容提取帮助文本"
-  },
-  "options_input_field_enabled_help": {
-    "message": "启用后，您可以在任何文本输入框中按快捷键触发翻译。翻译结果将在输入框附近的弹窗中显示",
-    "description": "输入框翻译帮助文本"
-  },
-  "options_trigger_key_modifiers": {
-    "message": "触发键修饰符",
-    "description": "触发键修饰符标签"
-  },
-  "options_trigger_key_modifiers_help": {
-    "message": "可选的修饰键，与触发键组合使用（例如：Ctrl+F2）",
-    "description": "触发键修饰符帮助文本"
-  },
-  "options_ctrl_key": {
-    "message": "Ctrl",
-    "description": "Ctrl键标签"
-  },
-  "options_alt_key": {
-    "message": "Alt",
-    "description": "Alt键标签"
-  },
-  "options_shift_key": {
-    "message": "Shift",
-    "description": "Shift键标签"
-  },
-  "options_auto_detect_page_language": {
-    "message": "自动检测页面语言进行输入框翻译",
-    "description": "输入框翻译自动检测页面语言标签"
-  },
-  "options_auto_detect_page_language_help": {
-    "message": "启用后，系统将检测网页的语言，并将输入文本翻译为该语言。例如，在中文网站上，英文输入将被翻译为中文",
-    "description": "自动检测页面语言帮助文本"
-  },
-  "options_default_target_language_help": {
-    "message": "当页面语言检测失败或输入语言与页面语言相同时使用的备用语言",
-    "description": "默认目标语言帮助文本"
-  },
-  "options_exclude_selectors_detailed_help": {
-    "message": "这里显示所有排除选择器。默认排除项是内置的，显示在顶部。请在\"# User Additional Selectors:\"注释行后添加您的自定义选择器",
-    "description": "详细排除选择器帮助文本"
-  },
+  "options_api_config": { "message": "API 配置" },
+  "options_api_endpoint": { "message": "API 端点地址" },
+  "options_api_endpoint_placeholder": { "message": "例如：https://api.deepseek.com/v1/chat/completions" },
+  "options_api_endpoint_help": { "message": "输入兼容 OpenAI 格式的 API 端点地址。留空时将使用免费 Google 翻译。" },
+  "options_api_key": { "message": "API 密钥" },
+  "options_api_key_placeholder": { "message": "输入你的 API 密钥" },
+  "options_api_key_help": { "message": "API 密钥将安全存储在浏览器同步存储中。留空则自动使用免费 Google 翻译。" },
+  "options_model": { "message": "模型" },
+  "options_model_placeholder": { "message": "请先配置 API" },
+  "options_refresh_models": { "message": "刷新模型" },
+  "options_loading_models": { "message": "加载中..." },
+  "options_model_help": { "message": "选择模型，或使用下方的自定义模型名" },
+  "options_no_models": { "message": "无可用模型" },
+  "options_model_load_failed": { "message": "加载模型列表失败" },
+  "options_temperature": { "message": "温度参数" },
+  "options_custom_model": { "message": "自定义模型名" },
+  "options_custom_model_placeholder": { "message": "输入自定义模型名（可选）" },
+  "options_custom_model_active": { "message": "（生效中）" },
+  "options_custom_model_inactive": { "message": "（未生效）" },
+  "options_custom_model_active_help": { "message": "正在使用自定义模型：\"{MODEL}\"（覆盖下拉选择）" },
+  "options_custom_model_inactive_help": { "message": "正在使用所选模型：\"{MODEL}\"（输入自定义模型名可覆盖）" },
+  "options_max_tokens": { "message": "最大 Token 数" },
+  "options_timeout": { "message": "超时时间（秒）" },
+  "options_test_connection": { "message": "测试连接" },
+  "options_testing": { "message": "测试中..." },
 
-  "options_interface_settings": {
-    "message": "界面设置",
-    "description": "界面设置部分标题"
-  },
-  "options_interface_language": {
-    "message": "界面语言",
-    "description": "界面语言标签"
-  },
-  "options_interface_language_help": {
-    "message": "选择扩展界面的语言",
-    "description": "界面语言帮助文本"
-  },
+  "options_reading_aids": { "message": "阅读辅助" },
+  "options_format_enabled": { "message": "页面格式增强：已开启" },
+  "options_format_disabled": { "message": "页面格式增强：已清除" },
+  "options_format_desc_enabled": { "message": "保存后会在新页面应用下方的阅读格式设置。" },
+  "options_format_desc_disabled": { "message": "新页面将保持网站原有格式；调整任一阅读格式并保存即可重新开启。" },
+  "options_clear_disable": { "message": "清除并保持关闭" },
+  "options_format_cleared": { "message": "已清除阅读格式，新页面将保持原有样式。" },
 
-  "options_performance_settings": {
-    "message": "性能设置",
-    "description": "性能设置部分标题"
-  },
-  "options_batch_size": {
-    "message": "并发翻译限制",
-    "description": "并发翻译限制标签"
-  },
-  "options_batch_size_help": {
-    "message": "同时翻译的段落数量（数值越高翻译越快，但请注意上游 TPM 限制）",
-    "description": "并发翻译限制帮助文本"
-  },
-  "options_retry_attempts": {
-    "message": "重试次数",
-    "description": "重试次数标签"
-  },
-  "options_retry_attempts_help": {
-    "message": "翻译失败时的重试次数",
-    "description": "重试次数帮助文本"
-  },
-  "options_exclude_selectors": {
-    "message": "排除选择器",
-    "description": "排除选择器标签"
-  },
-  "options_exclude_selectors_placeholder": {
-    "message": "正在加载排除选择器...",
-    "description": "排除选择器占位符"
-  },
-  "options_exclude_selectors_help": {
-    "message": "要从翻译中排除的元素的CSS选择器",
-    "description": "排除选择器帮助文本"
-  },
+  "options_dyslexic_font": { "message": "OpenDyslexic 字体" },
+  "options_dyslexic_font_help": { "message": "将页面英文字体替换为专为阅读障碍设计的 OpenDyslexic 字体，字母底部加重减少翻转错觉。" },
+  "options_chinese_font": { "message": "霞鹜文楷中文字体" },
+  "options_chinese_font_help": { "message": "将页面中文字体替换为霞鹜文楷（LXGW WenKai），字形清晰易辨识，适合阅读障碍人群。字体通过 CDN 加载，需要网络连接。" },
+  "options_bionic_reading": { "message": "Bionic Reading 引导阅读" },
+  "options_bionic_reading_help": { "message": "加粗每个英文单词的前半部分字符，通过视觉锚点引导眼球快速移动。" },
+  "options_bold_ratio": { "message": "加粗比例" },
+  "options_dim_non_bold": { "message": "降低后半部分不透明度" },
+  "options_dim_help": { "message": "使单词未加粗部分变淡，让视觉锚点更突出。" },
+  "options_sentence_break": { "message": "每句换行" },
+  "options_sentence_break_help": { "message": "将页面正文按句号、问号、感叹号等标点拆分为每句一行，减少长段落带来的阅读压力。" },
+  "options_font_size": { "message": "字号" },
+  "options_line_spacing": { "message": "行间距" },
+  "options_word_spacing": { "message": "单词间距" },
+  "options_letter_spacing": { "message": "字间距" },
+  "options_reset_spacing": { "message": "恢复推荐排版" },
+  "options_reset_spacing_help": { "message": "此操作只恢复本页表单的推荐值；如需在新页面完全不改动格式，请使用上方\"清除并保持关闭\"。" },
 
-  "options_save": {
-    "message": "保存设置",
-    "description": "保存按钮文本"
-  },
-  "options_test_connection": {
-    "message": "测试连接",
-    "description": "测试连接按钮文本"
-  },
-  "options_fetch_models": {
-    "message": "获取模型",
-    "description": "获取模型按钮文本"
-  },
-  "options_reset": {
-    "message": "重置为默认值",
-    "description": "重置按钮文本"
-  },
+  "options_reading_guide": { "message": "阅读导览" },
+  "options_reading_speed": { "message": "朗读速度" },
+  "options_reading_speed_help": { "message": "文字转语音朗读速度。超过 3 倍速时将自动启用静音模式（仅高亮不朗读）。" },
+  "options_muted_mode": { "message": "静音模式（仅高亮不朗读）" },
+  "options_reading_mask": { "message": "阅读遮罩（聚光灯效果）" },
+  "options_reading_guide_help": { "message": "阅读导览通过页面底部工具栏控制播放。此处可预设朗读偏好。" },
 
-  "options_save_success": {
-    "message": "设置保存成功！",
-    "description": "保存成功消息"
-  },
-  "options_save_error": {
-    "message": "保存设置失败",
-    "description": "保存错误消息"
-  },
-  "options_test_success": {
-    "message": "连接测试成功！",
-    "description": "测试成功消息"
-  },
-  "options_test_error": {
-    "message": "连接测试失败",
-    "description": "测试错误消息"
-  },
-  "options_fetch_models_success": {
-    "message": "模型获取成功！",
-    "description": "获取模型成功消息"
-  },
-  "options_fetch_models_error": {
-    "message": "获取模型失败",
-    "description": "获取模型错误消息"
-  },
+  "options_advanced_settings": { "message": "高级设置" },
+  "options_smart_content": { "message": "启用智能内容识别" },
+  "options_smart_content_help": { "message": "使用 Mozilla Readability 算法自动识别网页主体内容区域，减少手动配置需求。默认启用，关闭后将使用传统元素识别方法。" },
+  "options_input_field": { "message": "启用输入框翻译触发" },
+  "options_input_field_help": { "message": "启用后，在任意文本输入框中按下快捷键即可触发翻译，翻译结果将显示在输入框附近的弹出窗口中。" },
+  "options_trigger_key": { "message": "输入框触发快捷键" },
+  "options_trigger_key_help": { "message": "选择触发输入框翻译的按键。推荐 F2，因为网站很少使用该键。" },
+  "options_trigger_modifiers": { "message": "触发键修饰符" },
+  "options_trigger_modifiers_help": { "message": "可选的组合键修饰符（例如：Ctrl + F2）。" },
+  "options_auto_detect_lang": { "message": "自动检测页面语言用于输入框翻译" },
+  "options_auto_detect_lang_help": { "message": "启用后，系统将检测网页的语言，并将输入文本翻译为该语言。例如，在中文网站上，英文输入将被翻译为中文。" },
+  "options_default_target_lang": { "message": "默认目标语言" },
+  "options_default_target_lang_help": { "message": "页面语言检测失败或输入语言与页面语言相同时使用的备用语言。" },
+  "options_exclude_selectors": { "message": "排除选择器" },
+  "options_exclude_selectors_placeholder": { "message": "正在加载排除选择器..." },
+  "options_exclude_selectors_help": { "message": "显示所有排除选择器。默认排除项显示在顶部，在用户自定义注释行后添加自定义选择器。" },
+  "options_concurrency": { "message": "并发翻译数" },
+  "options_concurrency_help": { "message": "同时翻译的段落数量（值越大翻译越快，但 API 调用越密集）。" },
+  "options_retry": { "message": "重试次数" },
+  "options_retry_help": { "message": "翻译失败时的重试次数。" },
 
-  "language_auto": {
-    "message": "自动检测",
-    "description": "自动检测语言选项"
-  },
-  "language_en": {
-    "message": "英语",
-    "description": "英语语言名称"
-  },
-  "language_zh": {
-    "message": "中文",
-    "description": "中文语言名称"
-  },
-  "language_zh_CN": {
-    "message": "简体中文",
-    "description": "简体中文语言名称"
-  },
-  "language_zh_TW": {
-    "message": "繁体中文",
-    "description": "繁体中文语言名称"
-  },
-  "language_ja": {
-    "message": "日语",
-    "description": "日语语言名称"
-  },
-  "language_ko": {
-    "message": "韩语",
-    "description": "韩语语言名称"
-  },
-  "language_fr": {
-    "message": "法语",
-    "description": "法语语言名称"
-  },
-  "language_de": {
-    "message": "德语",
-    "description": "德语语言名称"
-  },
-  "language_es": {
-    "message": "西班牙语",
-    "description": "西班牙语语言名称"
-  },
-  "language_it": {
-    "message": "意大利语",
-    "description": "意大利语语言名称"
-  },
-  "language_pt": {
-    "message": "葡萄牙语",
-    "description": "葡萄牙语语言名称"
-  },
-  "language_ru": {
-    "message": "俄语",
-    "description": "俄语语言名称"
-  },
-  "language_ar": {
-    "message": "阿拉伯语",
-    "description": "阿拉伯语语言名称"
-  },
+  "options_smart_batching": { "message": "智能批处理优化" },
+  "options_smart_batching_enable": { "message": "启用智能批处理" },
+  "options_smart_batching_help": { "message": "使用基于 token 的智能批处理，最小化 API 调用次数并最大化效率。关闭后可实现逐段翻译、逐段显示。" },
 
-  "error_api_key_missing": {
-    "message": "未配置API密钥",
-    "description": "API密钥缺失错误"
-  },
-  "error_translation_failed": {
-    "message": "翻译失败",
-    "description": "翻译失败错误"
-  },
-  "error_no_translatable_text": {
-    "message": "此页面未找到可翻译的文本",
-    "description": "无可翻译文本错误"
-  },
-  "error_network_error": {
-    "message": "网络错误",
-    "description": "网络错误"
-  },
-  "error_timeout_error": {
-    "message": "请求超时",
-    "description": "超时错误"
-  },
-  "error_invalid_response": {
-    "message": "无效的API响应",
-    "description": "无效响应错误"
-  },
-  "error_quota_exceeded": {
-    "message": "API配额已超出",
-    "description": "配额超出错误"
-  },
-  "error_rate_limited": {
-    "message": "请求频率超限",
-    "description": "频率限制错误"
-  },
+  "options_glossary": { "message": "术语表" },
+  "options_glossary_enable": { "message": "启用内置术语表" },
+  "options_glossary_help": { "message": "强制 LLM 对神经多样性术语使用标准化中文翻译（如 \"Neurodiversity\" → \"神经多样性\"、\"Stimming\" → \"调节行为\"）。" },
+  "options_correction_enable": { "message": "启用后处理术语修正" },
+  "options_correction_help": { "message": "翻译完成后在本地对译文进行术语替换修正（如将\"自闭症\"修正为\"孤独谱系\"）。适用于无法注入术语表的免费翻译接口。" },
 
-  "context_menu_translate_page": {
-    "message": "翻译此页面",
-    "description": "右键菜单翻译页面选项"
-  },
-  "context_menu_translate_selection": {
-    "message": "翻译选中内容",
-    "description": "右键菜单翻译选中内容选项"
-  },
-  "context_menu_restore_original": {
-    "message": "恢复原文",
-    "description": "右键菜单恢复原文选项"
-  },
-  "context_menu_mode_replace": {
-    "message": "替换模式",
-    "description": "右键菜单替换模式选项"
-  },
-  "context_menu_mode_bilingual": {
-    "message": "双语模式",
-    "description": "右键菜单双语模式选项"
-  }
+  "options_save": { "message": "保存设置" },
+  "options_reset": { "message": "恢复默认设置" },
+  "options_save_success": { "message": "设置保存成功！" },
+  "options_save_error": { "message": "保存设置失败" },
+  "options_reset_success": { "message": "设置已恢复为默认值！" },
+  "options_reset_confirm": { "message": "确定要恢复所有设置为默认值吗？此操作不可撤销。" },
+  "options_test_success": { "message": "连接成功！API 工作正常。" },
+  "options_test_failed": { "message": "连接失败：{ERROR}" },
+  "options_models_success": { "message": "模型列表刷新成功！" },
+  "options_models_failed": { "message": "刷新模型失败：{ERROR}" },
+
+  "language_auto": { "message": "自动检测" },
+  "language_en": { "message": "English" },
+  "language_zh_CN": { "message": "简体中文" },
+  "language_zh_TW": { "message": "繁体中文" },
+  "language_ja": { "message": "日本語" },
+  "language_ko": { "message": "한국어" },
+  "language_fr": { "message": "Français" },
+  "language_de": { "message": "Deutsch" },
+  "language_es": { "message": "Español" },
+  "language_ru": { "message": "Русский" },
+  "language_pt": { "message": "Português" },
+  "language_it": { "message": "Italiano" },
+  "language_ar": { "message": "العربية" },
+
+  "context_menu_translate_page": { "message": "翻译此页面" },
+  "context_menu_translate_selection": { "message": "翻译选中内容" },
+  "context_menu_restore_original": { "message": "恢复原文" },
+  "context_menu_mode_replace": { "message": "替换模式" },
+  "context_menu_mode_bilingual": { "message": "双语模式" },
+
+  "options_interface_lang": { "message": "界面语言" },
+  "options_lang_auto": { "message": "跟随浏览器" },
+  "options_lang_zh_cn": { "message": "中文" },
+  "options_lang_en": { "message": "English" },
+  "options_interface_lang_help": { "message": "选择扩展界面的显示语言。修改后立即生效。" }
 }

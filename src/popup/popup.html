@@ -19,7 +19,7 @@
     <div class="status-section">
       <div id="statusIndicator" class="status-indicator">
         <div class="status-dot"></div>
-        <span id="statusText">就绪</span>
+        <span id="statusText" data-i18n="popup_ready">__MSG_popup_ready__</span>
       </div>
     </div>
 
@@ -27,12 +27,12 @@
     <div class="language-section">
       <div class="language-row">
         <select id="sourceLanguage" class="language-select">
-          <option value="auto">自动检测</option>
+          <option value="auto" data-i18n="language_auto">__MSG_language_auto__</option>
           <option value="en">English</option>
-          <option value="zh-CN">简体中文</option>
-          <option value="zh-TW">繁体中文</option>
-          <option value="ja">日本語</option>
-          <option value="ko">한국어</option>
+          <option value="zh-CN" data-i18n="language_zh_CN">__MSG_language_zh_CN__</option>
+          <option value="zh-TW" data-i18n="language_zh_TW">__MSG_language_zh_TW__</option>
+          <option value="ja" data-i18n="language_ja">__MSG_language_ja__</option>
+          <option value="ko" data-i18n="language_ko">__MSG_language_ko__</option>
           <option value="fr">Français</option>
           <option value="de">Deutsch</option>
           <option value="es">Español</option>
@@ -40,11 +40,11 @@
         </select>
         <span class="lang-arrow">&rarr;</span>
         <select id="targetLanguage" class="language-select">
-          <option value="zh-CN">简体中文</option>
+          <option value="zh-CN" data-i18n="language_zh_CN">__MSG_language_zh_CN__</option>
           <option value="en">English</option>
-          <option value="zh-TW">繁体中文</option>
-          <option value="ja">日本語</option>
-          <option value="ko">한국어</option>
+          <option value="zh-TW" data-i18n="language_zh_TW">__MSG_language_zh_TW__</option>
+          <option value="ja" data-i18n="language_ja">__MSG_language_ja__</option>
+          <option value="ko" data-i18n="language_ko">__MSG_language_ko__</option>
           <option value="fr">Français</option>
           <option value="de">Deutsch</option>
           <option value="es">Español</option>
@@ -58,76 +58,67 @@
       <div class="mode-options">
         <label class="radio-option">
           <input type="radio" name="translationMode" value="replace" id="modeReplace">
-          <span class="radio-label">自动替换</span>
+          <span class="radio-label" data-i18n="popup_mode_replace">__MSG_popup_mode_replace__</span>
         </label>
         <label class="radio-option">
           <input type="radio" name="translationMode" value="paragraph-bilingual" id="modeBilingual">
-          <span class="radio-label">自动双语</span>
+          <span class="radio-label" data-i18n="popup_mode_bilingual">__MSG_popup_mode_bilingual__</span>
         </label>
         <label class="radio-option">
           <input type="radio" name="translationMode" value="click-to-translate" id="modeClickTranslate">
-          <span class="radio-label">手动段落</span>
+          <span class="radio-label" data-i18n="popup_mode_click">__MSG_popup_mode_click__</span>
         </label>
       </div>
     </div>
 
     <!-- Action Buttons -->
     <div class="actions-section">
-      <button id="translateBtn" class="primary-btn">
-        翻译页面
-      </button>
-
-      <button id="restoreBtn" class="secondary-btn" disabled>
-        恢复原文
-      </button>
-
-      <button id="restoreAllBtn" class="secondary-btn" style="color:#d32f2f; border-color:#d32f2f;">
-        恢复原网页
-      </button>
+      <button id="translateBtn" class="primary-btn" data-i18n="popup_translate_page">__MSG_popup_translate_page__</button>
+      <button id="restoreBtn" class="secondary-btn" disabled data-i18n="popup_restore_original">__MSG_popup_restore_original__</button>
+      <button id="restoreAllBtn" class="secondary-btn" style="color:#d32f2f; border-color:#d32f2f;" data-i18n="popup_restore_webpage">__MSG_popup_restore_webpage__</button>
     </div>
 
     <!-- Quick Settings -->
     <div class="quick-settings">
       <label class="checkbox-option">
         <input type="checkbox" id="autoTranslate">
-        <span class="checkbox-label">自动翻译新页面</span>
+        <span class="checkbox-label" data-i18n="popup_auto_translate">__MSG_popup_auto_translate__</span>
       </label>
-
       <label class="checkbox-option">
         <input type="checkbox" id="toolbarVisible">
-        <span class="checkbox-label">页面显示工具栏</span>
+        <span class="checkbox-label" data-i18n="popup_show_toolbar">__MSG_popup_show_toolbar__</span>
       </label>
     </div>
 
     <!-- Translation Engine Toggle -->
     <div class="engine-section">
-      <span id="freeLabel" class="engine-option active" title="免费翻译由 Google 提供，效果可能不如 LLM API 精准">免费</span>
+      <span id="freeLabel" class="engine-option active" data-i18n-title="popup_engine_free_tip" data-i18n="popup_engine_free">__MSG_popup_engine_free__</span>
       <label class="toggle-switch">
         <input type="checkbox" id="useLLM">
         <span class="toggle-slider"></span>
       </label>
-      <span id="llmLabel" class="engine-option" title="需先在高级设置中配置 API 密钥">LLM</span>
+      <span id="llmLabel" class="engine-option" data-i18n-title="popup_engine_llm_tip" data-i18n="popup_engine_llm">__MSG_popup_engine_llm__</span>
     </div>
 
     <!-- Footer -->
     <div class="footer">
-      <button id="optionsBtn" class="text-btn">高级设置</button>
-      <div class="version">v1.0.0</div>
+      <button id="optionsBtn" class="text-btn" data-i18n="popup_advanced_settings">__MSG_popup_advanced_settings__</button>
+      <div class="version">v1.1.0</div>
     </div>
 
     <!-- Loading Overlay -->
     <div id="loadingOverlay" class="loading-overlay hidden">
       <div class="loading-spinner"></div>
-      <div class="loading-text">翻译中...</div>
+      <div class="loading-text" data-i18n="popup_translating">__MSG_popup_translating__</div>
     </div>
   </div>
 
-  <!-- Import shared modules -->
   <script src="../shared/constants.js"></script>
   <script src="../shared/utils.js"></script>
   <script src="../shared/config.js"></script>
   <script src="../shared/errorHandler.js"></script>
   <script src="../shared/stateManager.js"></script>
+  <script src="../shared/i18n.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

@@ -5,6 +5,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const { execSync } = require('child_process');
 
 // Parse command line arguments
@@ -235,21 +236,139 @@ function createZipPackage(distDir, version) {
   
   const zipName = `nd-translate-v${version}.zip`;
   const zipPath = path.join(distDir, zipName);
+  const extensionDir = path.join(distDir, 'extension');
   
   try {
     // Use system zip command
-    execSync(`cd "${path.join(distDir, 'extension')}" && zip -r "../${zipName}" .`, { stdio: 'ignore' });
+    execSync(`cd "${extensionDir}" && zip -r "../${zipName}" .`, { stdio: 'ignore' });
     console.log(`✓ Created ${zipName}`);
   } catch (error) {
-    // Windows environments commonly do not provide the `zip` command. The
-    // built-in tar utility can create ZIP archives with the same layout.
+    // Windows environments commonly do not provide the `zip` command. Use a
+    // minimal standards-compliant ZIP writer as a portable fallback.
     try {
-      execSync(`tar -a -c -f "${zipPath}" -C "${path.join(distDir, 'extension')}" .`, { stdio: 'ignore' });
-      console.log(`✓ Created ${zipName} (tar fallback)`);
+      createZipFromDirectory(extensionDir, zipPath);
+      console.log(`✓ Created ${zipName} (Node ZIP writer)`);
     } catch (fallbackError) {
       console.error('Failed to create ZIP package:', fallbackError.message);
     }
   }
+}
+
+/**
+ * Create a standard ZIP archive without external dependencies.
+ */
+function createZipFromDirectory(sourceDir, zipPath) {
+  const fileEntries = [];
+  const centralEntries = [];
+  let offset = 0;
+
+  for (const filePath of listFiles(sourceDir)) {
+    const name = toZipPath(path.relative(sourceDir, filePath));
+    const source = fs.readFileSync(filePath);
+    const compressed = zlib.deflateRawSync(source, { level: 9 });
+    const crc = crc32(source);
+    const nameBuffer = Buffer.from(name, 'utf8');
+    const { dosTime, dosDate } = getDosDateTime(fs.statSync(filePath).mtime);
+
+    const localHeader = Buffer.alloc(30);
+    localHeader.writeUInt32LE(0x04034b50, 0);
+    localHeader.writeUInt16LE(20, 4);
+    localHeader.writeUInt16LE(0x0800, 6);
+    localHeader.writeUInt16LE(8, 8);
+    localHeader.writeUInt16LE(dosTime, 10);
+    localHeader.writeUInt16LE(dosDate, 12);
+    localHeader.writeUInt32LE(crc, 14);
+    localHeader.writeUInt32LE(compressed.length, 18);
+    localHeader.writeUInt32LE(source.length, 22);
+    localHeader.writeUInt16LE(nameBuffer.length, 26);
+    localHeader.writeUInt16LE(0, 28);
+
+    fileEntries.push(localHeader, nameBuffer, compressed);
+
+    const centralHeader = Buffer.alloc(46);
+    centralHeader.writeUInt32LE(0x02014b50, 0);
+    centralHeader.writeUInt16LE(20, 4);
+    centralHeader.writeUInt16LE(20, 6);
+    centralHeader.writeUInt16LE(0x0800, 8);
+    centralHeader.writeUInt16LE(8, 10);
+    centralHeader.writeUInt16LE(dosTime, 12);
+    centralHeader.writeUInt16LE(dosDate, 14);
+    centralHeader.writeUInt32LE(crc, 16);
+    centralHeader.writeUInt32LE(compressed.length, 20);
+    centralHeader.writeUInt32LE(source.length, 24);
+    centralHeader.writeUInt16LE(nameBuffer.length, 28);
+    centralHeader.writeUInt16LE(0, 30);
+    centralHeader.writeUInt16LE(0, 32);
+    centralHeader.writeUInt16LE(0, 34);
+    centralHeader.writeUInt16LE(0, 36);
+    centralHeader.writeUInt32LE(0, 38);
+    centralHeader.writeUInt32LE(offset, 42);
+
+    centralEntries.push(centralHeader, nameBuffer);
+    offset += localHeader.length + nameBuffer.length + compressed.length;
+  }
+
+  const centralOffset = offset;
+  const centralSize = centralEntries.reduce((sum, buffer) => sum + buffer.length, 0);
+  const entryCount = centralEntries.length / 2;
+
+  const endRecord = Buffer.alloc(22);
+  endRecord.writeUInt32LE(0x06054b50, 0);
+  endRecord.writeUInt16LE(0, 4);
+  endRecord.writeUInt16LE(0, 6);
+  endRecord.writeUInt16LE(entryCount, 8);
+  endRecord.writeUInt16LE(entryCount, 10);
+  endRecord.writeUInt32LE(centralSize, 12);
+  endRecord.writeUInt32LE(centralOffset, 16);
+  endRecord.writeUInt16LE(0, 20);
+
+  fs.writeFileSync(zipPath, Buffer.concat([...fileEntries, ...centralEntries, endRecord]));
+}
+
+function listFiles(dir) {
+  const files = [];
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...listFiles(fullPath));
+    } else if (entry.isFile()) {
+      files.push(fullPath);
+    }
+  }
+
+  return files;
+}
+
+function toZipPath(filePath) {
+  return filePath.split(path.sep).join('/');
+}
+
+function getDosDateTime(date) {
+  const year = Math.max(1980, date.getFullYear());
+  const dosTime = (date.getHours() << 11) | (date.getMinutes() << 5) | Math.floor(date.getSeconds() / 2);
+  const dosDate = ((year - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate();
+  return { dosTime, dosDate };
+}
+
+function crc32(buffer) {
+  if (!crc32.table) {
+    crc32.table = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) {
+      let c = i;
+      for (let j = 0; j < 8; j++) {
+        c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+      }
+      crc32.table[i] = c >>> 0;
+    }
+  }
+
+  let crc = 0xffffffff;
+  for (const byte of buffer) {
+    crc = crc32.table[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
 }
 
 /**

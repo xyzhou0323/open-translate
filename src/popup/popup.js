@@ -29,6 +29,9 @@ let translationCancelled = false;
  */
 async function initialize() {
   try {
+    await I18n.init();
+    I18n.localizePage();
+
     // Get DOM elements
     initializeElements();
 
@@ -54,7 +57,7 @@ async function initialize() {
       });
     }
 
-    showError('扩展初始化失败');
+    showError(I18n.getMessage('popup_init_failed') || '扩展初始化失败');
   }
 }
 
@@ -161,9 +164,9 @@ function handleStatusUpdate(message) {
       isTranslating = true;
       isTranslated = false;
       if (data && data.progress !== undefined) {
-        setStatus('translating', `正在翻译页面... ${data.progress}%`);
+        setStatus('translating', `${I18n.getMessage('popup_translating') || '正在翻译页面...'} ${data.progress}%`);
       } else {
-        setStatus('translating', '正在翻译页面...');
+        setStatus('translating', I18n.getMessage('popup_translating') || '正在翻译页面...');
       }
       updateButtonStates();
       break;
@@ -173,7 +176,7 @@ function handleStatusUpdate(message) {
       isTranslated = true;
       hasCachedTranslations = true;
       translationCancelled = false;
-      setStatus('translated', '页面翻译完成');
+      setStatus('translated', I18n.getMessage('popup_translated') || '页面翻译完成');
       updateButtonStates();
 
       // Auto-close popup after translation completes
@@ -186,13 +189,13 @@ function handleStatusUpdate(message) {
       isTranslating = false;
       isTranslated = false;
       translationCancelled = false;
-      setStatus('restored', '原文已恢复');
+      setStatus('restored', I18n.getMessage('popup_restored') || '原文已恢复');
       updateButtonStates();
       break;
 
     case 'error':
       isTranslating = false;
-      setStatus('error', data || '翻译出错');
+      setStatus('error', data || I18n.getMessage('popup_generic_fail') || '翻译失败');
       updateButtonStates();
       break;
 
@@ -282,7 +285,7 @@ async function updateUIState() {
 
     // Check if current tab is valid and supports content scripts
     if (!currentTab || !currentTab.id || !isContentScriptSupported(currentTab.url)) {
-      setStatus('unavailable', '此页面不可翻译');
+      setStatus('unavailable', I18n.getMessage('popup_unavailable') || '此页面不可翻译');
       elements.translateBtn.disabled = true;
       elements.restoreBtn.disabled = true;
       return;
@@ -302,7 +305,7 @@ async function updateUIState() {
       updateButtonStates();
     } else {
       // Content script might not be ready, but allow translation
-      setStatus('ready', '就绪');
+      setStatus('ready', I18n.getMessage('popup_ready') || '就绪');
       isTranslated = false;
       isTranslating = false;
       updateButtonStates();
@@ -318,16 +321,16 @@ async function updateUIState() {
 function handleUIStateError(error) {
   // Don't log "Receiving end does not exist" as an error since it's expected on some pages
   if (error.message && error.message.includes('Receiving end does not exist')) {
-    setStatus('unavailable', '此页面不可翻译');
+    setStatus('unavailable', I18n.getMessage('popup_unavailable') || '此页面不可翻译');
     elements.translateBtn.disabled = true;
     elements.restoreBtn.disabled = true;
   } else if (error.message && error.message.includes('Extension context invalidated')) {
-    setStatus('error', '扩展需要重新加载');
+    setStatus('error', I18n.getMessage('popup_reload_extension') || '扩展需要重新加载');
     elements.translateBtn.disabled = true;
     elements.restoreBtn.disabled = true;
   } else if (error.message && error.message.includes('timeout')) {
     // Content script might be loading, allow translation attempt
-    setStatus('ready', '就绪');
+    setStatus('ready', I18n.getMessage('popup_ready') || '就绪');
     isTranslated = false;
     isTranslating = false;
     updateButtonStates();
@@ -335,7 +338,7 @@ function handleUIStateError(error) {
     // Don't log connection errors as warnings since they're expected
 
     // Other errors - still allow translation attempt
-    setStatus('ready', '就绪');
+    setStatus('ready', I18n.getMessage('popup_ready') || '就绪');
     isTranslated = false;
     isTranslating = false;
     updateButtonStates();
@@ -377,7 +380,7 @@ async function handleTranslate() {
   try {
     // Check if extension context is still valid
     if (!chrome.runtime || !chrome.runtime.id) {
-      throw new Error('扩展上下文已失效，请重新加载扩展。');
+      throw new Error(I18n.getMessage('popup_context_invalidated') || '扩展上下文已失效，请重新加载扩展。');
     }
 
     if (!isContentScriptSupported(currentTab.url)) {
@@ -389,7 +392,7 @@ async function handleTranslate() {
     // than merely restoring the old translation.
 
     isTranslating = true;
-    setStatus('translating', '正在翻译页面...');
+    setStatus('translating', I18n.getMessage('popup_translating') || '正在翻译页面...');
     updateButtonStates();
 
     // 确保模式状态正确同步
@@ -410,9 +413,9 @@ async function handleTranslate() {
       isTranslating = false;
       hasCachedTranslations = true; // Translation populated cache
       if (translationCancelled) {
-        setStatus('translated', '翻译已暂停');
+        setStatus('translated', I18n.getMessage('popup_translation_paused') || '翻译已暂停');
       } else {
-        setStatus('translated', '页面翻译完成');
+        setStatus('translated', I18n.getMessage('popup_translated') || '页面翻译完成');
       }
       updateButtonStates();
 
@@ -423,7 +426,7 @@ async function handleTranslate() {
         }, 1000);
       }
     } else {
-      throw new Error(response?.error || '翻译失败');
+      throw new Error(response?.error || I18n.getMessage('popup_generic_fail') || '翻译失败');
     }
   } catch (error) {
     // If user paused, don't show error
@@ -444,11 +447,11 @@ async function handleTranslate() {
     }
 
     // Provide more specific error messages
-    let errorMessage = error.message || '翻译失败';
+    let errorMessage = error.message || I18n.getMessage('popup_generic_fail') || '翻译失败';
     if (error.message && error.message.includes('Extension context invalidated')) {
-      errorMessage = '扩展需要重新加载，请重新加载扩展后重试。';
+      errorMessage = I18n.getMessage('popup_context_invalidated') || '扩展上下文已失效，请重新加载扩展后重试。';
     } else if (error.message && error.message.includes('Receiving end does not exist')) {
-      errorMessage = '内容脚本不可用，请刷新页面后重试。';
+      errorMessage = I18n.getMessage('popup_script_unavailable') || '内容脚本不可用，请刷新页面后重试。';
     }
 
     setStatus('error', errorMessage);
@@ -467,7 +470,7 @@ async function handleTranslate() {
  */
 async function handleCancelTranslation() {
   translationCancelled = true;
-  setStatus('translating', '正在暂停...');
+  setStatus('translating', I18n.getMessage('popup_pausing') || '正在暂停...');
   try {
     await sendMessageWithTimeout(currentTab.id, {
       action: 'cancel'
@@ -485,7 +488,7 @@ async function handleRestore() {
   try {
     // Check if extension context is still valid
     if (!chrome.runtime || !chrome.runtime.id) {
-      throw new Error('扩展上下文已失效，请重新加载扩展。');
+      throw new Error(I18n.getMessage('popup_context_invalidated') || '扩展上下文已失效，请重新加载扩展。');
     }
 
     // Check if content script is supported
@@ -506,14 +509,14 @@ async function handleRestore() {
 
       if (response && response.success) {
         if (response.showingOriginalOnly) {
-          setStatus('original-only', '正在显示原文');
-          elements.restoreBtn.textContent = '显示翻译';
+          setStatus('original-only', I18n.getMessage('popup_original_only') || '正在显示原文');
+          elements.restoreBtn.textContent = I18n.getMessage('popup_show_translation') || '显示翻译';
         } else {
-          setStatus('translated', '正在显示双语视图');
-          elements.restoreBtn.textContent = '仅显示原文';
+          setStatus('translated', I18n.getMessage('popup_translated') || '正在显示双语视图');
+          elements.restoreBtn.textContent = I18n.getMessage('popup_original_only') || '仅显示原文';
         }
       } else {
-        throw new Error(response?.error || '切换视图失败');
+        throw new Error(response?.error || I18n.getMessage('popup_mode_switch_failed') || '切换视图失败');
       }
     } else {
       // In replace mode, toggle between showing original and showing translation
@@ -524,7 +527,7 @@ async function handleRestore() {
       }
 
       // Restore original text
-      setStatus('restoring', '正在恢复原文...');
+      setStatus('restoring', I18n.getMessage('popup_restoring') || '正在恢复原文...');
 
       const response = await sendMessageWithTimeout(currentTab.id, {
         action: 'restore'
@@ -533,10 +536,10 @@ async function handleRestore() {
       if (response && response.success) {
         isTranslated = false;
         isTranslating = false;
-        setStatus('restored', '原文已恢复');
+        setStatus('restored', I18n.getMessage('popup_restored') || '原文已恢复');
         updateButtonStates();
       } else {
-        throw new Error(response?.error || '恢复原文失败');
+        throw new Error(response?.error || I18n.getMessage('popup_restore_fail') || '恢复原文失败');
       }
     }
 
@@ -552,11 +555,11 @@ async function handleRestore() {
     }
 
     // Provide more specific error messages
-    let errorMessage = error.message || '恢复原文失败';
+    let errorMessage = error.message || I18n.getMessage('popup_restore_fail') || '恢复原文失败';
     if (error.message && error.message.includes('Extension context invalidated')) {
-      errorMessage = '扩展需要重新加载，请重新加载扩展后重试。';
+      errorMessage = I18n.getMessage('popup_context_invalidated') || '扩展上下文已失效，请重新加载扩展后重试。';
     } else if (error.message && error.message.includes('Receiving end does not exist')) {
-      errorMessage = '内容脚本不可用，请刷新页面后重试。';
+      errorMessage = I18n.getMessage('popup_script_unavailable') || '内容脚本不可用，请刷新页面后重试。';
     }
 
     setStatus('error', errorMessage);
@@ -573,15 +576,15 @@ async function handleRestore() {
 async function handleRestoreAll() {
   try {
     if (!chrome.runtime || !chrome.runtime.id) {
-      throw new Error('扩展上下文已失效，请重新加载扩展。');
+      throw new Error(I18n.getMessage('popup_context_invalidated') || '扩展上下文已失效，请重新加载扩展。');
     }
 
     if (!isContentScriptSupported(currentTab.url)) {
-      throw new Error('此页面不支持此操作');
+      throw new Error(I18n.getMessage('popup_page_not_supported') || '此页面不支持此操作');
     }
 
     showLoading(true);
-    setStatus('restoring', '正在恢复原网页...');
+    setStatus('restoring', I18n.getMessage('popup_restoring_webpage') || '正在恢复原网页...');
 
     const response = await sendMessageWithTimeout(currentTab.id, {
       action: 'restoreAll'
@@ -593,14 +596,14 @@ async function handleRestoreAll() {
       hasCachedTranslations = false;
       translationCancelled = false;
       elements.toolbarVisible.checked = false;
-      setStatus('restored', '已恢复原网页');
+      setStatus('restored', I18n.getMessage('popup_webpage_restored') || '已恢复原网页');
       updateButtonStates();
       setTimeout(() => window.close(), 1000);
     } else {
-      throw new Error(response?.error || '恢复失败');
+      throw new Error(response?.error || I18n.getMessage('popup_restore_webpage_fail') || '恢复失败');
     }
   } catch (error) {
-    setStatus('error', error.message || '恢复原网页失败');
+    setStatus('error', error.message || I18n.getMessage('popup_restore_webpage_fail') || '恢复原网页失败');
     updateButtonStates();
   } finally {
     showLoading(false);
@@ -630,16 +633,18 @@ async function handleModeChange() {
 
         if (response && response.success) {
           // 更新状态显示
-          setStatus('translated', `已切换至${mode === TRANSLATION_MODES.REPLACE ? '替换' : '双语'}模式`);
+          const switchKey = mode === TRANSLATION_MODES.REPLACE ? 'popup_switched_replace' : 'popup_switched_bilingual';
+          const switchFallback = mode === TRANSLATION_MODES.REPLACE ? '已切换至替换模式' : '已切换至双语模式';
+          setStatus('translated', I18n.getMessage(switchKey) || switchFallback);
         } else {
-          setStatus('error', '切换模式失败');
+          setStatus('error', I18n.getMessage('popup_mode_switch_failed') || '切换模式失败');
         }
       } catch (error) {
-        setStatus('error', '与页面通信失败');
+        setStatus('error', I18n.getMessage('popup_comm_failed') || '与页面通信失败');
       }
     }
   } catch (error) {
-    setStatus('error', '切换模式失败');
+    setStatus('error', I18n.getMessage('popup_mode_switch_failed') || '切换模式失败');
   }
 }
 
@@ -667,11 +672,11 @@ async function saveGeneralPreferences() {
  */
 function updateStatusDisplay(response) {
   if (response.isTranslating) {
-    setStatus('translating', '翻译中...');
+    setStatus('translating', I18n.getMessage('popup_translating') || '翻译中...');
   } else if (response.isTranslated) {
-    setStatus('translated', '页面已翻译');
+    setStatus('translated', I18n.getMessage('popup_translated') || '页面已翻译');
   } else {
-    setStatus('ready', '就绪');
+    setStatus('ready', I18n.getMessage('popup_ready') || '就绪');
   }
 }
 
@@ -690,30 +695,30 @@ function updateButtonStates() {
   elements.translateBtn.disabled = false;
 
   if (isTranslating) {
-    elements.translateBtn.textContent = '暂停翻译';
+    elements.translateBtn.textContent = I18n.getMessage('popup_pause_translation') || '暂停翻译';
     elements.translateBtn.classList.add('cancel-btn');
     elements.restoreBtn.disabled = true;
-    elements.restoreBtn.textContent = '恢复原文';
+    elements.restoreBtn.textContent = I18n.getMessage('popup_restore_original') || '恢复原文';
   } else if (!isTranslated && hasCachedTranslations) {
-    elements.translateBtn.textContent = '重新翻译';
+    elements.translateBtn.textContent = I18n.getMessage('popup_retranslate') || '重新翻译';
     elements.translateBtn.classList.remove('cancel-btn');
     elements.restoreBtn.disabled = false;
-    elements.restoreBtn.textContent = '显示译文';
+    elements.restoreBtn.textContent = I18n.getMessage('popup_show_translation') || '显示译文';
   } else if (isTranslated) {
-    elements.translateBtn.textContent = '重新翻译';
+    elements.translateBtn.textContent = I18n.getMessage('popup_retranslate') || '重新翻译';
     elements.translateBtn.classList.remove('cancel-btn');
     elements.restoreBtn.disabled = false;
     const mode = getSelectedMode();
     if (mode === TRANSLATION_MODES.BILINGUAL) {
-      elements.restoreBtn.textContent = '仅显示原文';
+      elements.restoreBtn.textContent = I18n.getMessage('popup_original_only') || '仅显示原文';
     } else {
-      elements.restoreBtn.textContent = '恢复原文';
+      elements.restoreBtn.textContent = I18n.getMessage('popup_restore_original') || '恢复原文';
     }
   } else {
-    elements.translateBtn.textContent = '翻译页面';
+    elements.translateBtn.textContent = I18n.getMessage('popup_translate_page') || '翻译页面';
     elements.translateBtn.classList.remove('cancel-btn');
     elements.restoreBtn.disabled = true;
-    elements.restoreBtn.textContent = '恢复原文';
+    elements.restoreBtn.textContent = I18n.getMessage('popup_restore_original') || '恢复原文';
   }
 }
 

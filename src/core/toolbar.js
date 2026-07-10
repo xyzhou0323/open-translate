@@ -51,6 +51,8 @@ class Toolbar {
     this._displayBtn = null;
     this._displayPanel = null;
     this._onPanelResize = this._onPanelResize.bind(this);
+    this._language = this._resolveLanguage('auto');
+    this._messages = this._getMessages(this._language);
 
     // Button refs
     this._playBtn = null;
@@ -65,6 +67,7 @@ class Toolbar {
   init() {
     this._injectStyles();
     this._createDOM();
+    this._initializeLanguage();
     this._bindEvents();
     this._loadStoredVisibility();
   }
@@ -182,6 +185,10 @@ class Toolbar {
   }
 
   _updateFromStorage(changes) {
+    if (changes.uiLanguage) {
+      this._setLanguage(this._resolveLanguage(changes.uiLanguage.newValue));
+    }
+
     if (!this.visible) return;
     const a11y = this.accessibilityFeatures;
     if (!a11y) return;
@@ -239,6 +246,203 @@ class Toolbar {
 
   // ── Helpers ────────────────────────────────────────────
 
+  _resolveLanguage(preference) {
+    if (preference && preference !== 'auto') {
+      return String(preference).toLowerCase().startsWith('en') ? 'en' : 'zh-CN';
+    }
+    try {
+      const browserLang = chrome.i18n && chrome.i18n.getUILanguage
+        ? chrome.i18n.getUILanguage()
+        : '';
+      return String(browserLang).toLowerCase().startsWith('en') ? 'en' : 'zh-CN';
+    } catch (e) {
+      return 'zh-CN';
+    }
+  }
+
+  _getMessages(language) {
+    const zh = {
+      collapseTitle: '收起',
+      expandTitle: '展开工具栏',
+      translate: '翻译',
+      retranslate: '重译',
+      translating: '翻译中',
+      translateTitle: '翻译当前页面',
+      hideTranslation: '隐藏译文',
+      showTranslation: '显示译文',
+      hideTranslationTitle: '隐藏译文并显示原文',
+      showTranslationTitle: '显示译文',
+      playTitle: '播放',
+      pauseTitle: '暂停',
+      stopTitle: '停止',
+      seekTitle: '点击页面定位（再次点击退出连续定位）',
+      speed: '速度',
+      silentSuffix: ' (静音)',
+      voiced: '有声',
+      muted: '静音',
+      mutedTitle: '点击静音/取消静音',
+      mask: '遮罩',
+      maskOff: '遮罩关',
+      maskTitle: '阅读遮罩',
+      display: '显示',
+      displayTitle: '显示与阅读设置',
+      dyslexicTitle: 'OpenDyslexic 字体',
+      chineseFont: '楷',
+      chineseFontTitle: '霞鹜文楷中文字体',
+      boldRatio: '加粗',
+      dimText: '淡字',
+      dimTitle: '降低非加粗部分不透明度',
+      sentenceBreak: '换行',
+      sentenceBreakTitle: '每句换行',
+      fontSize: '字号',
+      lineSpacing: '行距',
+      wordSpacing: '词距',
+      letterSpacing: '字距',
+      clear: '清除',
+      clearTitle: '清除翻译与阅读格式',
+      closeTitle: '关闭工具栏',
+      panelTitle: '显示与阅读设置',
+      panelFonts: '字体',
+      panelBionic: 'Bionic 阅读',
+      panelLayout: '排版'
+    };
+
+    const en = {
+      collapseTitle: 'Collapse',
+      expandTitle: 'Expand toolbar',
+      translate: 'Translate',
+      retranslate: 'Retranslate',
+      translating: 'Translating',
+      translateTitle: 'Translate current page',
+      hideTranslation: 'Hide translation',
+      showTranslation: 'Show translation',
+      hideTranslationTitle: 'Hide translation and show original text',
+      showTranslationTitle: 'Show translation',
+      playTitle: 'Play',
+      pauseTitle: 'Pause',
+      stopTitle: 'Stop',
+      seekTitle: 'Click page to seek (click again to exit continuous seek)',
+      speed: 'Speed',
+      silentSuffix: ' (silent)',
+      voiced: 'Voice',
+      muted: 'Silent',
+      mutedTitle: 'Mute or unmute reading',
+      mask: 'Mask',
+      maskOff: 'No mask',
+      maskTitle: 'Reading mask',
+      display: 'Display',
+      displayTitle: 'Display and reading settings',
+      dyslexicTitle: 'OpenDyslexic font',
+      chineseFont: 'Kai',
+      chineseFontTitle: 'LXGW WenKai Chinese font',
+      boldRatio: 'Bold',
+      dimText: 'Dim',
+      dimTitle: 'Dim the non-bold part of words',
+      sentenceBreak: 'Break',
+      sentenceBreakTitle: 'Break each sentence onto a new line',
+      fontSize: 'Size',
+      lineSpacing: 'Line',
+      wordSpacing: 'Word',
+      letterSpacing: 'Letter',
+      clear: 'Clear',
+      clearTitle: 'Clear translation and reading formats',
+      closeTitle: 'Close toolbar',
+      panelTitle: 'Display and reading settings',
+      panelFonts: 'Fonts',
+      panelBionic: 'Bionic Reading',
+      panelLayout: 'Layout'
+    };
+
+    return language === 'en' ? en : zh;
+  }
+
+  _t(key) {
+    return this._messages[key] || this._getMessages('zh-CN')[key] || key;
+  }
+
+  _initializeLanguage() {
+    this._applyLanguage();
+    try {
+      chrome.storage.sync.get(['uiLanguage'], (result) => {
+        this._setLanguage(this._resolveLanguage(result.uiLanguage || 'auto'));
+      });
+    } catch (e) {
+      this._applyLanguage();
+    }
+  }
+
+  _setLanguage(language) {
+    if (this._language === language) return;
+    this._language = language;
+    this._messages = this._getMessages(language);
+    this._applyLanguage();
+  }
+
+  _setGroupLabel(controlId, text) {
+    const control = document.getElementById(controlId);
+    const label = control && control.closest('.ot-tb-group') && control.closest('.ot-tb-group').querySelector('.ot-tb-label');
+    if (label) label.textContent = text;
+  }
+
+  _setToggleCopy(btn, onText, offText, title) {
+    if (!btn) return;
+    btn.dataset.on = onText;
+    btn.dataset.off = offText;
+    btn.title = title;
+    this._updateToggle(btn, btn.classList.contains('active'));
+  }
+
+  _applyLanguage() {
+    if (this._minEl) this._minEl.title = this._t('expandTitle');
+    const setTitle = (id, title) => {
+      const el = document.getElementById(id);
+      if (el) el.title = title;
+    };
+    setTitle('ot-tb-collapse', this._t('collapseTitle'));
+    setTitle('ot-tb-translate', this._t('translateTitle'));
+    setTitle('ot-tb-play', this._t('playTitle'));
+    setTitle('ot-tb-pause', this._t('pauseTitle'));
+    setTitle('ot-tb-stop', this._t('stopTitle'));
+    setTitle('ot-tb-seek', this._t('seekTitle'));
+    setTitle('ot-tb-display', this._t('displayTitle'));
+    setTitle('ot-tb-dyslexic', this._t('dyslexicTitle'));
+    setTitle('ot-tb-restore-all', this._t('clearTitle'));
+    setTitle('ot-tb-close', this._t('closeTitle'));
+
+    if (this._displayBtn) this._displayBtn.textContent = this._t('display');
+    const clearBtn = document.getElementById('ot-tb-restore-all');
+    if (clearBtn) clearBtn.textContent = this._t('clear');
+
+    this._setToggleCopy(this._mutedBtn, this._t('voiced'), this._t('muted'), this._t('mutedTitle'));
+    this._setToggleCopy(this._maskBtn, this._t('mask'), this._t('maskOff'), this._t('maskTitle'));
+    this._setToggleCopy(this._dyslexicBtn, 'Dys', 'Dys', this._t('dyslexicTitle'));
+    this._setToggleCopy(this._chineseFontBtn, this._t('chineseFont'), this._t('chineseFont'), this._t('chineseFontTitle'));
+    this._setToggleCopy(this._bionicBtn, 'Bionic', 'Bionic', 'Bionic Reading');
+    this._setToggleCopy(this._bionicDimBtn, this._t('dimText'), this._t('dimText'), this._t('dimTitle'));
+    this._setToggleCopy(this._sentenceBreakBtn, this._t('sentenceBreak'), this._t('sentenceBreak'), this._t('sentenceBreakTitle'));
+
+    this._setGroupLabel('ot-tb-speed', this._t('speed'));
+    this._setGroupLabel('ot-tb-bionic-ratio', this._t('boldRatio'));
+    this._setGroupLabel('ot-tb-fontsize', this._t('fontSize'));
+    this._setGroupLabel('ot-tb-linespacing', this._t('lineSpacing'));
+    this._setGroupLabel('ot-tb-wordspacing', this._t('wordSpacing'));
+    this._setGroupLabel('ot-tb-letterspacing', this._t('letterSpacing'));
+
+    if (this._displayPanel) {
+      const title = this._displayPanel.querySelector('.ot-tb-panel-title');
+      const fonts = this._displayPanel.querySelector('[data-section="fonts"] > span');
+      const bionic = this._displayPanel.querySelector('[data-section="bionic"] > span');
+      const layout = this._displayPanel.querySelector('[data-section="layout"] > span');
+      if (title) title.textContent = this._t('panelTitle');
+      if (fonts) fonts.textContent = this._t('panelFonts');
+      if (bionic) bionic.textContent = this._t('panelBionic');
+      if (layout) layout.textContent = this._t('panelLayout');
+    }
+
+    this._updateTranslationControls();
+    if (this._speedSlider) this._updateSpeedLabel(parseFloat(this._speedSlider.value || 3.0));
+  }
+
   _updateToggle(btn, active) {
     if (!btn) return;
     btn.classList.toggle('active', !!active);
@@ -263,19 +467,19 @@ class Toolbar {
     const translationVisible = state.translationVisible === true;
     if (this._translateBtn) {
       this._translateBtn.disabled = translating;
-      this._translateBtn.textContent = translating ? '翻译中' : ((translated || hasCachedTranslations) ? '重译' : '翻译');
+      this._translateBtn.textContent = translating ? this._t('translating') : ((translated || hasCachedTranslations) ? this._t('retranslate') : this._t('translate'));
       this._translateBtn.setAttribute('aria-busy', String(translating));
     }
     if (this._restoreTranslationBtn) {
       this._restoreTranslationBtn.disabled = translating || (!translated && !hasCachedTranslations);
-      this._restoreTranslationBtn.textContent = translationVisible ? '隐藏译文' : '显示译文';
-      this._restoreTranslationBtn.title = translationVisible ? '隐藏译文并显示原文' : '显示译文';
+      this._restoreTranslationBtn.textContent = translationVisible ? this._t('hideTranslation') : this._t('showTranslation');
+      this._restoreTranslationBtn.title = translationVisible ? this._t('hideTranslationTitle') : this._t('showTranslationTitle');
     }
   }
 
   _updateSpeedLabel(speed) {
     if (!this._speedLabel) return;
-    this._speedLabel.textContent = speed.toFixed(1) + 'x' + (speed > 3.0 ? ' (静音)' : '');
+    this._speedLabel.textContent = speed.toFixed(1) + 'x' + (speed > 3.0 ? this._t('silentSuffix') : '');
   }
 
   _updateBionicRatioLabel(val) {

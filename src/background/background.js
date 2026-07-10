@@ -13,6 +13,8 @@ importScripts(
 );
 
 let extensionState = null;
+let backgroundMessages = {};
+let backgroundLanguage = 'auto';
 
 /**
  * Initialize background script
@@ -30,7 +32,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
       await configManager.resetToDefaults();
     }
 
-    createContextMenus();
+    await createContextMenus();
     stateManager.setContextMenuCreated(true);
 
   } catch (error) {
@@ -42,25 +44,56 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 });
 
 /**
+ * Load user-selected UI language for service worker text such as context menus.
+ */
+async function loadBackgroundI18n() {
+  try {
+    const result = await chrome.storage.sync.get(['uiLanguage']);
+    backgroundLanguage = result.uiLanguage || 'auto';
+    backgroundMessages = {};
+
+    if (backgroundLanguage === 'auto') return;
+
+    const localeDir = String(backgroundLanguage).toLowerCase().startsWith('en') ? 'en' : 'zh_CN';
+    const response = await fetch(chrome.runtime.getURL(`_locales/${localeDir}/messages.json`));
+    const json = await response.json();
+    for (const [key, entry] of Object.entries(json)) {
+      backgroundMessages[key] = entry.message;
+    }
+  } catch (error) {
+    backgroundLanguage = 'auto';
+    backgroundMessages = {};
+  }
+}
+
+function getBackgroundMessage(key, fallback) {
+  if (backgroundLanguage !== 'auto' && backgroundMessages[key]) {
+    return backgroundMessages[key];
+  }
+  return chrome.i18n.getMessage(key) || fallback;
+}
+
+/**
  * Create context menus
  */
-function createContextMenus() {
+async function createContextMenus() {
+  await loadBackgroundI18n();
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: CONTEXT_MENU_IDS.TRANSLATE_PAGE,
-      title: 'Translate this page',
+      title: getBackgroundMessage('context_menu_translate_page', 'Translate this page'),
       contexts: ['page']
     });
 
     chrome.contextMenus.create({
       id: CONTEXT_MENU_IDS.TRANSLATE_SELECTION,
-      title: 'Translate "%s"',
+      title: getBackgroundMessage('context_menu_translate_selection', 'Translate "%s"'),
       contexts: ['selection']
     });
 
     chrome.contextMenus.create({
       id: CONTEXT_MENU_IDS.RESTORE_ORIGINAL,
-      title: 'Restore original text',
+      title: getBackgroundMessage('context_menu_restore_original', 'Restore original text'),
       contexts: ['page']
     });
 
@@ -72,7 +105,7 @@ function createContextMenus() {
 
     chrome.contextMenus.create({
       id: CONTEXT_MENU_IDS.MODE_REPLACE,
-      title: 'Replace mode',
+      title: getBackgroundMessage('context_menu_mode_replace', 'Replace mode'),
       type: 'radio',
       contexts: ['page'],
       checked: true
@@ -80,12 +113,18 @@ function createContextMenus() {
 
     chrome.contextMenus.create({
       id: CONTEXT_MENU_IDS.MODE_BILINGUAL,
-      title: 'Bilingual mode',
+      title: getBackgroundMessage('context_menu_mode_bilingual', 'Bilingual mode'),
       type: 'radio',
       contexts: ['page']
     });
   });
 }
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'sync' && changes.uiLanguage) {
+    createContextMenus().catch(() => {});
+  }
+});
 
 /**
  * Handle context menu clicks using shared constants and error handling
@@ -113,7 +152,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   } catch (error) {
     errorHandler.handle(error, 'context-menu-action', {
       notificationOptions: {
-        title: 'Translation failed',
+        title: chrome.i18n.getMessage('popup_error') || 'Translation failed',
         message: formatError(error)
       }
     });

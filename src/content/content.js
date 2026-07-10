@@ -274,7 +274,7 @@ async function initializeInputFieldListener() {
 
     const isEnabled = result.inputFieldListenerEnabled !== false; // 默认启用
 
-    if (isEnabled) {
+    if (isEnabled && useFreeMode === false) {
       inputFieldListener = new InputFieldListener({
         debounceDelay: 300,
         minTextLength: 2,
