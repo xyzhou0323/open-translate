@@ -306,8 +306,10 @@ class ReadingGuide {
             if (parent.closest && parent.closest('#ot-toolbar, #ot-toolbar-min, #ot-reading-mask')) {
               return NodeFilter.FILTER_REJECT;
             }
-            // Skip translated bilingual wrappers
-            if (parent.closest && parent.closest('.ot-bilingual-container, .ot-paragraph-bilingual')) {
+            // Skip only the legacy replacement wrapper. Paragraph bilingual
+            // containers are visible page content and must remain readable;
+            // hidden translated spans are filtered by visibility checks below.
+            if (parent.closest && parent.closest('.ot-bilingual-container')) {
               return NodeFilter.FILTER_REJECT;
             }
             // Keep whitespace-only nodes: spaces between inline elements are
@@ -436,7 +438,7 @@ class ReadingGuide {
     if (!element) return true;
 
     const uiSelector = [
-      'nav', 'aside', 'header', 'footer', 'form', 'button',
+      'nav', 'aside', 'footer', 'form', 'button',
       '[role="navigation"]', '[role="menu"]', '[role="menubar"]',
       '[role="tablist"]', '[role="dialog"]', '[role="alertdialog"]',
       '[hidden]', '[aria-hidden="true"]', '[inert]'
@@ -738,7 +740,7 @@ class ReadingGuide {
           tag === 'OPTION' || tag === 'SVG' || tag === 'TSPAN' || tag === 'TEXTPATH') continue;
       if (parent.hasAttribute('hidden') || parent.getAttribute('aria-hidden') === 'true') continue;
       if (parent.closest('[hidden], [aria-hidden="true"]')) continue;
-      if (parent.closest('.ot-bilingual-container, .ot-paragraph-bilingual, #ot-toolbar, #ot-toolbar-min, #ot-reading-mask')) continue;
+      if (parent.closest('.ot-bilingual-container, #ot-toolbar, #ot-toolbar-min, #ot-reading-mask')) continue;
       if (parent.style.display === 'none' || parent.style.visibility === 'hidden') continue;
       const rect = parent.getBoundingClientRect();
       if (rect.width === 0 && rect.height === 0) continue;

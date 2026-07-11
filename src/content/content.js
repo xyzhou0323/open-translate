@@ -579,6 +579,60 @@ function getGroupText(group) {
 }
 
 /**
+ * Build groups for visible semantic blocks that remain untranslated after the
+ * normal pass. This is deliberately independent of the main extractor so a
+ * browser-specific computed-style result or custom exclusion cannot silently
+ * leave ordinary paragraphs behind.
+ */
+function collectUntranslatedSemanticGroups() {
+  const selector = 'p, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, dt, dd, figcaption';
+  const groups = [];
+
+  document.querySelectorAll(selector).forEach((container, index) => {
+    if (container.classList.contains('ot-paragraph-bilingual') ||
+        container.closest('.ot-paragraph-bilingual, .ot-bilingual-container') ||
+        container.querySelector(selector) ||
+        container.querySelector('.ot-paragraph-translated') ||
+        container.closest('[data-translate="no"], .notranslate, [translate="no"], [aria-hidden="true"]')) {
+      return;
+    }
+
+    const style = window.getComputedStyle(container);
+    const rect = container.getBoundingClientRect();
+    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0' ||
+        (rect.width === 0 && rect.height === 0)) {
+      return;
+    }
+
+    const textNodes = [];
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+    let node;
+    while (node = walker.nextNode()) {
+      const text = node.textContent.trim();
+      if (!text || !node.parentElement ||
+          node.parentElement.closest('script, style, noscript, pre, code, svg, canvas, .ot-paragraph-translated')) {
+        continue;
+      }
+      textNodes.push({ node, text, parent: node.parentElement, originalText: node.textContent });
+    }
+
+    const combinedText = textNodes.map(item => item.text).join(' ').trim();
+    if (!combinedText) return;
+
+    groups.push({
+      id: `ot-semantic-recovery-${index}`,
+      container,
+      textNodes,
+      combinedText,
+      originalText: combinedText,
+      priority: 10
+    });
+  });
+
+  return groups;
+}
+
+/**
  * Create a click-to-translate handler with cache support.
  * Returns a callback suitable for TranslationRenderer.setupClickToTranslateMode.
  */
@@ -895,6 +949,29 @@ async function handleTranslateRequest(options = {}) {
         }
       }
 
+      // Completeness pass for bilingual mode. Any visible semantic block that
+      // still has no translation marker is translated now, bypassing the
+      // regular extractor's filtering path.
+      if (translationMode === TRANSLATION_MODES.BILINGUAL && !translationCancelled) {
+        // Two bounded passes: the second one verifies the first recovery pass
+        // and retries only semantic blocks that still lack a translation.
+        for (let recoveryPass = 0; recoveryPass < 2 && !translationCancelled; recoveryPass++) {
+          const recoveryGroups = collectUntranslatedSemanticGroups();
+          if (recoveryGroups.length === 0) break;
+          recoveryGroups.forEach(group => group.container.classList.add('ot-translating'));
+          const recoveryOptions = { translationMode, cancelCheck: () => translationCancelled };
+          if (useFreeMode !== false) {
+            await freeTranslator.translateParagraphGroups(
+              recoveryGroups, targetLanguage, sourceLanguage, progressCallback, recoveryOptions
+            );
+          } else {
+            await translationService.translateParagraphGroups(
+              recoveryGroups, targetLanguage, sourceLanguage, progressCallback, recoveryOptions
+            );
+          }
+        }
+      }
+
       // Re-apply accessibility features temporarily restored before extraction.
       // Set suppressObserver BEFORE re-applying — accessibility DOM changes
       // (e.g. inserting <br> tags for sentence breaks) alter layout and fire
@@ -969,7 +1046,9 @@ async function handleTranslateRequest(options = {}) {
       contentObserver.observe(document.body, {
         childList: true,
         subtree: true,
-        characterData: true
+        characterData: true,
+        attributes: true,
+        attributeFilter: ['class', 'style', 'hidden', 'aria-hidden']
       });
     }
 
@@ -1597,7 +1676,9 @@ async function handleViewportChange() {
       contentObserver.observe(document.body, {
         childList: true,
         subtree: true,
-        characterData: true
+        characterData: true,
+        attributes: true,
+        attributeFilter: ['class', 'style', 'hidden', 'aria-hidden']
       });
     }
     setTimeout(() => {

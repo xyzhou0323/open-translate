@@ -80,11 +80,13 @@ class TranslationService {
     });
 
     // 验证必要的配置
-    if (!this.config.apiKey) {
+    // Free translation does not require an API key. Only warn when the user
+    // explicitly selected the LLM backend.
+    if (!this.config.apiKey && this.config.useFreeMode === false) {
       console.warn('[TranslationService] API key not configured');
     }
 
-    if (!this.config.apiUrl) {
+    if (!this.config.apiUrl && this.config.useFreeMode === false) {
       console.warn('[TranslationService] API URL not configured');
     }
 

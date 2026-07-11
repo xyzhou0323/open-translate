@@ -191,6 +191,7 @@ class TextExtractor {
    */
   extractParagraphGroups(rootElement = document.body, options = {}) {
     const textNodes = this.extractTextNodes(rootElement, options);
+    this.addMissingSemanticTextNodes(rootElement, textNodes, options);
     const paragraphGroups = this.groupTextNodesByParagraph(textNodes, options);
 
     // 如果启用了视口优先翻译，对段落组进行排序
@@ -199,6 +200,44 @@ class TextExtractor {
     }
 
     return paragraphGroups;
+  }
+
+  /**
+   * Guarantee coverage for visible semantic text blocks. Browser engines do
+   * not always report pseudo-element/computed styles consistently; a valid
+   * paragraph must not disappear from translation because of that variation.
+   */
+  addMissingSemanticTextNodes(rootElement, textNodes, options = {}) {
+    const coveredNodes = new Set(textNodes.map(item => item.node));
+    const selector = 'p, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, dt, dd, figcaption';
+    const candidates = [];
+
+    if (rootElement.matches && rootElement.matches(selector)) {
+      candidates.push(rootElement);
+    }
+    if (rootElement.querySelectorAll) {
+      candidates.push(...rootElement.querySelectorAll(selector));
+    }
+
+    candidates.forEach(element => {
+      if (!this.isElementVisible(element) ||
+          element.closest('[data-translate="no"], .notranslate, [translate="no"]') ||
+          element.closest('.ot-bilingual-container, .ot-paragraph-bilingual')) {
+        return;
+      }
+
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      let node;
+      while (node = walker.nextNode()) {
+        if (coveredNodes.has(node) || !hasSignificantText(node.textContent)) continue;
+        const parent = node.parentElement;
+        if (!parent || parent.closest('script, style, noscript, pre, code, svg, canvas, [aria-hidden="true"]')) {
+          continue;
+        }
+        textNodes.push(this.createTextNodeInfo(node));
+        coveredNodes.add(node);
+      }
+    });
   }
 
   /**
@@ -280,28 +319,9 @@ class TextExtractor {
       return false;
     }
 
-    // 更宽松的链接文本检查
-    const linkParent = node.parentElement.closest('a[href]');
-    if (linkParent) {
-      const text = node.textContent.trim();
-      // 降低链接文本的长度要求，允许更多链接文本被翻译
-      if (text.length < 10 && !/[.!?。！？]/.test(text) && !/[\u4e00-\u9fff]/.test(text)) {
-        return false;
-      }
-    }
-
-    // 排除导航和菜单区域：翻译会替换 innerHTML，破坏菜单 JS 事件和 CSS 状态
-    if (node.parentElement.closest('nav, menu, [role="navigation"], [role="menu"], [role="menubar"]')) {
-      return false;
-    }
-    const navClassSet = new Set(['nav', 'navbar', 'navigation', 'megamenu', 'mega-menu', 'dropdown-menu', 'submenu', 'topbar', 'site-header', 'main-menu']);
-    let el = node.parentElement;
-    while (el && el !== document.body) {
-      const classStr = typeof el.className === 'string' ? el.className : (el.getAttribute('class') || '');
-      const classes = classStr.toLowerCase().split(/\s+/);
-      if (classes.some(c => navClassSet.has(c))) return false;
-      el = el.parentElement;
-    }
+    // Navigation links and short CTA/button labels are important homepage copy.
+    // The renderer only updates text nodes, so translating them no longer removes
+    // event listeners or element attributes and they must not be filtered out.
 
     // 使用更宽松的排除检查
     return !this.isStrictlyExcludedElement(node.parentElement, excludeSelectors);
@@ -329,23 +349,6 @@ class TextExtractor {
         parent.classList.contains('alt-text') ||
         parent.hasAttribute('role') && parent.getAttribute('role') === 'tooltip') {
       return true;
-    }
-
-    // 检查是否是通过CSS生成的内容（伪元素）
-    try {
-      const computedStyle = window.getComputedStyle(parent, '::before');
-      if (computedStyle && computedStyle.content &&
-          computedStyle.content !== 'none' && computedStyle.content !== '""') {
-        return true;
-      }
-
-      const afterStyle = window.getComputedStyle(parent, '::after');
-      if (afterStyle && afterStyle.content &&
-          afterStyle.content !== 'none' && afterStyle.content !== '""') {
-        return true;
-      }
-    } catch (e) {
-      // 忽略样式检查错误
     }
 
     // 检查是否在隐藏元素中
@@ -405,26 +408,10 @@ class TextExtractor {
     // 只排除明确不应翻译的元素
     const strictExcludeElements = [
       'script', 'style', 'noscript', 'iframe', 'object', 'embed',
-      'canvas', 'svg', 'math', 'pre', 'kbd', 'samp', 'var',
-      'nav', 'menu'
+      'canvas', 'svg', 'math', 'pre', 'kbd', 'samp', 'var'
     ];
 
     if (strictExcludeElements.includes(tagName)) {
-      return true;
-    }
-
-    // 排除导航和菜单相关的 ARIA role
-    if (element.getAttribute('role') === 'navigation' ||
-        element.getAttribute('role') === 'menu' ||
-        element.getAttribute('role') === 'menubar') {
-      return true;
-    }
-
-    // 排除常见导航/菜单 class 模式（精确匹配，避免误杀含 "-nav-" 的内容 class）
-    const navClassSet = new Set(['nav', 'navbar', 'navigation', 'megamenu', 'mega-menu', 'dropdown-menu', 'submenu', 'topbar', 'site-header', 'main-menu']);
-    const classStr = typeof element.className === 'string' ? element.className : (element.getAttribute('class') || '');
-    const classes = classStr.toLowerCase().split(/\s+/);
-    if (classes.some(c => navClassSet.has(c))) {
       return true;
     }
 
@@ -435,7 +422,7 @@ class TextExtractor {
 
     // 检查表单元素
     if (element.contentEditable === 'true') return true;
-    if (['input', 'textarea', 'button', 'select'].includes(tagName)) return true;
+    if (['input', 'textarea', 'select'].includes(tagName)) return true;
 
     // 检查用户自定义排除选择器
     if (excludeSelectors.length > 0) {
@@ -820,16 +807,35 @@ class TextExtractor {
       return current;
     }
 
-    // Look for paragraph-level containers
-    const paragraphElements = [
+    // Prefer a semantic block container even when the text is inside a link or
+    // formatting span. This prevents overlapping groups such as both <p> and
+    // its child <a> being rendered in bilingual mode.
+    const semanticBlockSelector = [
       'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-      'li', 'td', 'th', 'blockquote', 'pre',
-      'div', 'article', 'section', 'option'
-    ];
+      'li', 'td', 'th', 'blockquote', 'pre', 'dt', 'dd', 'figcaption'
+    ].join(',');
+    const semanticBlock = current && current.closest(semanticBlockSelector);
+    if (semanticBlock && semanticBlock !== document.body) {
+      if (options.translationMode !== 'replace' || this.isSafeContainerForReplace(semanticBlock)) {
+        return semanticBlock;
+      }
+    }
+
+    // Standalone navigation links, CTA buttons and labels should be translated
+    // individually rather than grouping their flex/grid parent.
+    const interactiveContainer = current && current.closest('a, button, label');
+    if (options.translationMode !== 'replace' && interactiveContainer && interactiveContainer !== document.body) {
+      return interactiveContainer;
+    }
+
+    const fallbackElements = options.translationMode === 'replace'
+      ? ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'td', 'th',
+         'blockquote', 'pre', 'dt', 'dd', 'figcaption', 'div', 'article', 'section', 'option']
+      : ['div', 'article', 'section', 'option'];
 
     while (current && current !== document.body) {
       const tagName = current.tagName.toLowerCase();
-      if (paragraphElements.includes(tagName)) {
+      if (fallbackElements.includes(tagName)) {
         if (options.translationMode === 'replace' && !this.isSafeContainerForReplace(current)) {
           current = current.parentElement;
           continue;

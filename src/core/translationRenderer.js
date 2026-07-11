@@ -336,7 +336,7 @@ class TranslationRenderer {
       container.innerHTML = sanitizedTranslation;
     } else {
       const cleanTranslation = this.stripHtmlTags(translationText);
-      this.replaceTextNodesInContainer(group.textNodes, cleanTranslation);
+      this.replaceTextNodesInContainer(group.textNodes, cleanTranslation, container);
       // replaceTextNodesInContainer only touches textNodes in the group,
       // leaving whitespace-only text nodes between inline elements intact.
       // For CJK translations this creates unwanted gaps between every word.
@@ -364,7 +364,13 @@ class TranslationRenderer {
 
     // Build a simple mapping: find each original text segment in the combined text
     // and determine where it maps to in the translation
-    this._distributeTranslation(textNodes, originalTexts, combinedOriginal, cleanTranslation);
+    this._distributeTranslation(container, textNodes, originalTexts, combinedOriginal, cleanTranslation);
+
+    // A flat translation has no source line-break mapping. Keeping the old
+    // <br> elements produces empty lines and shifts centered/flex content.
+    // The original innerHTML is cached before replacement, so restoration
+    // still recreates the exact original structure.
+    container.querySelectorAll('br').forEach(br => br.remove());
 
     // After distribution, whitespace text nodes between inline elements
     // (e.g. "Hello <span>world</span>") are not in textNodes and remain
@@ -418,10 +424,15 @@ class TranslationRenderer {
   }
 
   /**
-   * Distribute translated text across text nodes proportionally to original text length.
-   * This preserves the DOM structure while approximately mapping translation to text nodes.
+   * Put a flat paragraph translation into one stable text node.
+   *
+   * Splitting a translation proportionally across inline descendants is unsafe: a
+   * translated word can land inside icon, badge, flex or absolutely-positioned
+   * elements and change the page's alignment. Prefer a direct text child (which
+   * inherits the container's layout); otherwise use the largest existing text
+   * node, while leaving all elements and their event listeners intact.
    */
-  _distributeTranslation(textNodes, originalTexts, combinedOriginal, cleanTranslation) {
+  _distributeTranslation(container, textNodes, originalTexts, combinedOriginal, cleanTranslation) {
     if (!combinedOriginal || combinedOriginal.trim().length === 0) {
       // Can't map — just put all translation in first text node
       const first = textNodes[0];
@@ -436,26 +447,25 @@ class TranslationRenderer {
       return;
     }
 
-    const totalLen = combinedOriginal.length;
-    let charOffset = 0;
+    const liveTextNodes = textNodes.filter(tn =>
+      tn.node && tn.node.nodeType === Node.TEXT_NODE && container.contains(tn.node)
+    );
+    if (liveTextNodes.length === 0) return;
 
-    for (let i = 0; i < textNodes.length; i++) {
-      const tn = textNodes[i];
-      if (!tn.node || tn.node.nodeType !== Node.TEXT_NODE) continue;
+    const directTextNode = liveTextNodes.find(tn => tn.node.parentElement === container);
+    let target = directTextNode;
 
-      const origLen = originalTexts[i].length;
-      if (origLen === 0) continue;
-
-      // Proportionally map: start and end positions in the translation
-      const startRatio = charOffset / totalLen;
-      const endRatio = (charOffset + origLen) / totalLen;
-
-      const transStart = Math.round(startRatio * cleanTranslation.length);
-      const transEnd = Math.round(endRatio * cleanTranslation.length);
-
-      tn.node.textContent = cleanTranslation.substring(transStart, transEnd);
-      charOffset += origLen;
+    if (!target) {
+      target = liveTextNodes.reduce((largest, current) =>
+        (current.node.textContent || '').trim().length > (largest.node.textContent || '').trim().length
+          ? current
+          : largest
+      );
     }
+
+    liveTextNodes.forEach(tn => {
+      tn.node.textContent = tn === target ? cleanTranslation : '';
+    });
   }
 
   /**
@@ -1361,7 +1371,7 @@ class TranslationRenderer {
     });
   }
 
-  replaceTextNodesInContainer(textNodes, translationText) {
+  replaceTextNodesInContainer(textNodes, translationText, container) {
     if (!textNodes || textNodes.length === 0) return;
 
     if (textNodes.length === 1) {
@@ -1372,12 +1382,12 @@ class TranslationRenderer {
       return;
     }
 
-    // Multiple text nodes — distribute translation proportionally so every
-    // text node gets its share instead of dumping everything in the first one.
+    // Multiple text nodes: keep the flat translation in one stable node so
+    // inline layout descendants do not receive arbitrary translation fragments.
     const originalTexts = textNodes.map(tn => tn.node ? (tn.node.textContent || '') : '');
     const combinedOriginal = originalTexts.join('');
     if (combinedOriginal && combinedOriginal.trim().length > 0) {
-      this._distributeTranslation(textNodes, originalTexts, combinedOriginal, translationText);
+      this._distributeTranslation(container, textNodes, originalTexts, combinedOriginal, translationText);
     } else {
       // Fallback: put all translation in the first text node
       const firstTextNode = textNodes[0];
@@ -1647,15 +1657,6 @@ class TranslationRenderer {
       return;
     }
 
-    // 跳过纯链接容器（如导航菜单）
-    if (container.tagName.toLowerCase() === 'a' ||
-        (container.children.length === 1 && container.children[0].tagName.toLowerCase() === 'a')) {
-      const text = result.originalText.trim();
-      if (text.length < 20 && !/[.!?。！？]/.test(text)) {
-        return;
-      }
-    }
-
     // Store original content
     const originalContent = container.innerHTML;
     const originalText = result.originalText;
@@ -1667,7 +1668,10 @@ class TranslationRenderer {
 
     // Create translated content section for all elements (including headings)
     // This preserves the original HTML structure including links
-    const translatedSection = document.createElement('div');
+    // Use a block span instead of a div. It is valid inside paragraphs,
+    // headings, links and buttons, and does not become a new flex/grid item in
+    // the container's parent (a common cause of broken site navigation).
+    const translatedSection = document.createElement('span');
     translatedSection.className = 'ot-paragraph-translated';
     translatedSection.setAttribute('data-bilingual-mode', 'true');
 
@@ -1684,6 +1688,10 @@ class TranslationRenderer {
 
     // 确保译文元素可见
     translatedSection.style.display = 'block';
+    translatedSection.style.width = '100%';
+    translatedSection.style.boxSizing = 'border-box';
+    translatedSection.style.textAlign = 'inherit';
+    translatedSection.style.lineHeight = 'inherit';
     translatedSection.style.visibility = 'visible';
     translatedSection.style.opacity = '1';
 
@@ -1800,34 +1808,24 @@ class TranslationRenderer {
         opacity: 1;
       }
 
-      /* 段落级双语对照样式 */
-      .ot-paragraph-bilingual {
-        margin: 0;
+      /* .ot-paragraph-bilingual is a state marker only. Never reset layout,
+         spacing, colors or typography on the host page's own element. */
+
+      /* 译文样式 */
+      .ot-paragraph-translated {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        margin: 0.25em 0 0;
         padding: 0;
-        background: none;
-        border: none;
+        color: inherit;
         font-family: inherit;
         font-size: inherit;
         font-weight: inherit;
         font-style: inherit;
         line-height: inherit;
         letter-spacing: inherit;
-        text-decoration: inherit;
-        color: inherit;
-      }
-
-      /* 译文样式 */
-      .ot-paragraph-translated {
-        margin-top: 10px;
-        margin-bottom: 8px;
-        padding: 4px 0;
-        color: inherit;
-        font-family: inherit;
-        font-size: inherit;
-        font-weight: 350;
-        font-style: inherit;
-        line-height: 1.6;
-        letter-spacing: 0.02em;
+        text-align: inherit;
         text-decoration: inherit;
         background: none;
         border: none;
@@ -2046,6 +2044,10 @@ class TranslationRenderer {
           if (this.hasTranslatableChanges(mutation)) {
             hasTextChanges = true;
           }
+        } else if (mutation.type === 'attributes') {
+          // SPAs, carousels and presentations commonly reveal text by only
+          // changing class/style/hidden state. Re-scan when visibility changes.
+          hasTextChanges = true;
         }
       });
       
@@ -2057,7 +2059,9 @@ class TranslationRenderer {
     observer.observe(document.body, {
       childList: true,
       subtree: true,
-      characterData: true
+      characterData: true,
+      attributes: true,
+      attributeFilter: ['class', 'style', 'hidden', 'aria-hidden']
     });
 
     return observer;
@@ -2145,14 +2149,6 @@ class TranslationRenderer {
     const siteStyles = this.detectSiteStyles();
 
     return `
-      /* 自适应双语对照样式 */
-      .ot-paragraph-bilingual {
-        /* 继承网站原有样式但确保基础可读性 */
-        font-family: ${siteStyles.fontFamily || 'inherit'};
-        color: ${siteStyles.color || 'inherit'};
-        background-color: ${siteStyles.backgroundColor || 'transparent'};
-      }
-
       /* 译文字体优化 - 继承原文字体 */
       .ot-paragraph-translated {
         font-family: inherit;
@@ -2212,39 +2208,14 @@ class TranslationRenderer {
    * 生成间距调整样式
    */
   generateSpacingAdjustments(siteStyles) {
-    const fontSize = parseFloat(siteStyles.fontSize) || 16;
-    const topSpacing = Math.max(8, fontSize * 0.5);
-    const bottomSpacing = Math.max(6, fontSize * 0.375);
-    const padding = Math.max(4, fontSize * 0.25);
-
     return `
-      /* 根据字体大小动态调整间距 */
+      /* Preserve the host element's rhythm and alignment. */
       .ot-paragraph-translated {
-        margin-top: ${topSpacing}px !important;
-        margin-bottom: ${bottomSpacing}px !important;
-        padding: ${padding}px 0 !important;
-        line-height: ${Math.max(1.5, 1.2 + fontSize * 0.025)} !important;
+        margin: 0.25em 0 0 !important;
+        padding: 0 !important;
+        line-height: inherit !important;
+        text-align: inherit !important;
       }
-
-      /* 针对小字体的特殊处理 */
-      ${fontSize < 14 ? `
-        .ot-paragraph-translated {
-          margin-top: 6px !important;
-          margin-bottom: 4px !important;
-          padding: 3px 0 !important;
-          line-height: 1.5 !important;
-        }
-      ` : ''}
-
-      /* 针对大字体的特殊处理 */
-      ${fontSize > 18 ? `
-        .ot-paragraph-translated {
-          margin-top: ${fontSize * 0.6}px !important;
-          margin-bottom: ${fontSize * 0.45}px !important;
-          padding: ${fontSize * 0.3}px 0 !important;
-          line-height: 1.7 !important;
-        }
-      ` : ''}
     `;
   }
 

@@ -1,6 +1,6 @@
 {
   "extensionName": { "message": "ND Translate" },
-  "extensionDescription": { "message": "Neurodiversity-friendly web page translator. Dual-engine (free Google Translate + OpenAI-compatible API), three translation modes, built-in ND glossary, and reading aids including OpenDyslexic font, Bionic Reading, and sentence break." },
+  "extensionDescription": { "message": "Neurodiversity-friendly translator with free and OpenAI-compatible engines, replace/bilingual/click modes, ND glossary, and reading aids." },
 
   "popup_ready": { "message": "Ready" },
   "popup_translating": { "message": "Translating page..." },

@@ -1,6 +1,6 @@
 {
   "extensionName": { "message": "ND Translate" },
-  "extensionDescription": { "message": "网页翻译扩展，内置神经多样性术语标准化翻译，兼容 OpenAI 兼容 API。支持替换/双语/点击翻译三种模式、免费 Google + LLM 双引擎、内置 ND 术语表，以及 OpenDyslexic 字体、Bionic Reading、每句换行等阅读辅助功能。" },
+  "extensionDescription": { "message": "神经多样性友好的网页翻译扩展，支持免费与 OpenAI 兼容引擎、替换/双语/点击模式、ND 术语表和阅读辅助功能。" },
 
   "popup_ready": { "message": "就绪" },
   "popup_translating": { "message": "正在翻译页面..." },
